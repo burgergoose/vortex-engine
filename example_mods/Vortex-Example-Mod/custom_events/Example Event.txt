@@ -1,0 +1,1 @@
+A harmless example event. Value 1 and Value 2 are printed to the log.

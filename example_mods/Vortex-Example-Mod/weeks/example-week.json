@@ -1,0 +1,27 @@
+{
+  "songs": [
+    [
+      "Example Song",
+      "dad",
+      [
+        146,
+        113,
+        253
+      ]
+    ]
+  ],
+  "weekCharacters": [
+    "example-dad",
+    "bf",
+    "gf"
+  ],
+  "weekBackground": "stage",
+  "storyName": "Vortex Example",
+  "weekBefore": "",
+  "weekName": "Vortex Example Mod",
+  "startUnlocked": true,
+  "hiddenUntilUnlocked": false,
+  "hideStoryMode": false,
+  "hideFreeplay": false,
+  "difficulties": ""
+}

@@ -1,0 +1,13 @@
+{
+	"engineName": "Vortex Engine",
+	"engineVersion": "0.1.0",
+
+	"_comment_discordAppId": "Create your own app at https://discord.com/developers/applications, copy its Application ID below. Leave as \"0\" to keep Discord RPC off regardless of the Settings toggle.",
+	"discordAppId": "0",
+
+	"_comment_updateCheckUrl": "Optional. A raw-text URL (e.g. a raw GitHub file) containing just your build's version string. Leave blank to skip update checks entirely.",
+	"updateCheckUrl": "",
+
+	"_comment_issueTrackerUrl": "Optional. Shown in crash logs / the outdated-version popup. Leave blank to omit.",
+	"issueTrackerUrl": ""
+}
