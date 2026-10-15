@@ -44,7 +44,7 @@
         1
       ],
       "antialiasing": true,
-      "filters": 0
+      "filters": 3
     },
     {
       "type": "sprite",
@@ -61,7 +61,7 @@
         1.1
       ],
       "antialiasing": true,
-      "filters": 0
+      "filters": 3
     }
   ]
 }

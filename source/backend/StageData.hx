@@ -188,13 +188,15 @@ class StageData {
 						spr.antialiasing = false;
 					}
 
-					if(data.scale != null && (data.scale[0] != 1.0 || data.scale[1] != 1.0))
+					if(data.scale != null && data.scale.length > 1 && (data.scale[0] != 1.0 || data.scale[1] != 1.0))
 					{
 						spr.scale.set(data.scale[0], data.scale[1]);
 						spr.updateHitbox();
 					}
-					spr.scrollFactor.set(data.scroll[0], data.scroll[1]);
-					spr.color = CoolUtil.colorFromString(data.color);
+					// Vortex Engine: tolerate stage files that leave out scroll / color
+					if(data.scroll != null && data.scroll.length > 1) spr.scrollFactor.set(data.scroll[0], data.scroll[1]);
+					else spr.scrollFactor.set(1, 1);
+					spr.color = (data.color != null) ? CoolUtil.colorFromString(data.color) : FlxColor.WHITE;
 					
 					for (varName in ['alpha', 'angle'])
 					{
@@ -214,8 +216,11 @@ class StageData {
 		return addedObjects;
 	}
 
-	public static function validateVisibility(filters:LoadFilters)
+	public static function validateVisibility(filters:Null<LoadFilters>)
 	{
+		// Vortex Engine: hand-written / older stage files often have no "filters" (or 0, or -1) on their objects.
+		// In vanilla that made every such sprite invisible -> a black stage. Treat those as "always show".
+		if(filters == null || filters == 0 || (filters:Int) < 0) return true;
 		if((filters & STORY_MODE) == STORY_MODE)
 			if(!PlayState.isStoryMode) return false;
 		else if((filters & FREEPLAY) == FREEPLAY)

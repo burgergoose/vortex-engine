@@ -71,7 +71,7 @@ class CosmicBackground extends FlxGroup
 	var screenW:Int;
 	var screenH:Int;
 
-	public function new(width:Int = 1280, height:Int = 720, withVortex:Bool = false)
+	public function new(width:Int = 1280, height:Int = 720, withVortex:Bool = false, ringCenterX:Float = -1)
 	{
 		super();
 		screenW = width;
@@ -94,7 +94,7 @@ class CosmicBackground extends FlxGroup
 		baked.antialiasing = true;
 		add(baked);
 
-		if (withVortex) buildVortex(width, height);
+		if (withVortex) buildVortex(width, height, ringCenterX < 0 ? width / 2 : ringCenterX);
 		buildTwinkleStars(width, height);
 		buildDust(width, height);
 		buildShooters();
@@ -129,13 +129,14 @@ class CosmicBackground extends FlxGroup
 		return bmp;
 	}
 
-	function buildVortex(w:Int, h:Int):Void
+	function buildVortex(w:Int, h:Int, cx:Float):Void
 	{
 		var defs:Array<Array<Dynamic>> = [[720, NEBULA_VIOLET, 4, 1, 5.0, 0.45], [560, ACCENT_CYAN, 3, 2, -8.0, 0.38], [380, NEBULA_MAGENTA, 3, 3, 12.0, 0.40]];
 		for (d in defs)
 		{
 			var ring:FlxSprite = new FlxSprite().loadGraphic(bakeRing(d[0], d[1], d[2], d[3]));
 			ring.screenCenter();
+			ring.x = cx - ring.width / 2;
 			ring.scrollFactor.set();
 			ring.antialiasing = true;
 			ring.alpha = d[5];

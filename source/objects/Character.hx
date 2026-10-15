@@ -135,6 +135,27 @@ class Character extends FlxSprite
 			trace('Error loading character file of "$character": $e');
 		}
 
+		// Vortex Engine: a character whose image file can't be found used to be drawn as the HaxeFlixel logo.
+		// Fall back to Boyfriend and say which file is missing.
+		if(!isAnimateAtlas && frames == null && !missingCharacter)
+		{
+			var wanted:String = imageFile;
+			trace('Character "$character": image not found: images/$wanted.png (looked in mods/${Mods.currentModDirectory}/images/ and assets/shared/images/)');
+			missingCharacter = true;
+			missingText = new FlxText(0, 0, 300, 'ERROR:\nimages/$wanted.png', 16);
+			missingText.alignment = CENTER;
+			try
+			{
+				var fallback:String = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER + '.json');
+				#if MODS_ALLOWED
+				loadCharacterFile(Json.parse(File.getContent(fallback)));
+				#else
+				loadCharacterFile(Json.parse(Assets.getText(fallback)));
+				#end
+			}
+			catch(e:Dynamic) {}
+		}
+
 		skipDance = false;
 		hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
 		recalculateDanceIdle();

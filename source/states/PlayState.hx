@@ -266,6 +266,26 @@ class PlayState extends MusicBeatState
 	public var startCallback:Void->Void = null;
 	public var endCallback:Void->Void = null;
 
+	/**
+	 * Vortex Engine: without an Inst file a song used to play a ~28 ms beep and instantly finish, with no hint of why.
+	 * LoadingState.loadAndSwitchState calls this before starting any song; when it returns a state, that
+	 * state (an error screen naming the exact folder to put Inst.ogg in) is shown instead of PlayState.
+	 */
+	public static function missingInstState():Null<flixel.FlxState>
+	{
+		if(SONG == null || Paths.instFile(SONG.song) == null)
+		{
+			var songName:String = (SONG != null) ? SONG.song : '?';
+			var folderName:String = Paths.formatToSongPath(songName);
+			var modFolder:String = (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0) ? Mods.currentModDirectory : '<your mod folder>';
+			trace('INST NOT FOUND for "$songName" (mod: "${Mods.currentModDirectory}")');
+			return new states.ErrorState('INST FILE NOT FOUND\n\nSong: $songName\nPut Inst.ogg in:\nmods/$modFolder/songs/$folderName/\n\n(.wav also works, .mp3 does not)\n\nPress BACK to return.',
+				null,
+				function() MusicBeatState.switchState(isStoryMode ? new StoryMenuState() : new FreeplayState()));
+		}
+		return null;
+	}
+
 	private static var _lastLoadedModDirectory:String = '';
 	public static var nextReloadAll:Bool = false;
 	override public function create()
@@ -289,18 +309,6 @@ class PlayState extends MusicBeatState
 		PauseSubState.songName = null; //Reset to default
 		playbackRate = ClientPrefs.getGameplaySetting('songspeed');
 
-		// Vortex Engine: without an Inst file the song used to play a ~28 ms beep and instantly finish, with no
-		// hint of why. Say exactly what is missing and where it was looked for instead.
-		if(Paths.instFile(SONG.song) == null)
-		{
-			var folderName:String = Paths.formatToSongPath(SONG.song);
-			var modFolder:String = (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0) ? Mods.currentModDirectory : '<your mod folder>';
-			trace('INST NOT FOUND for "${SONG.song}" (mod: "${Mods.currentModDirectory}")');
-			MusicBeatState.switchState(new states.ErrorState('INST FILE NOT FOUND\n\nSong: ${SONG.song}\nPut Inst.ogg in:\nmods/$modFolder/songs/$folderName/\n\n(.wav also works, .mp3 does not)\n\nPress BACK to return.',
-				null,
-				function() MusicBeatState.switchState(isStoryMode ? new StoryMenuState() : new FreeplayState())));
-			return;
-		}
 
 		keysArray = [
 			'note_left',
@@ -436,6 +444,13 @@ class PlayState extends MusicBeatState
 			for (key => spr in list)
 				if(!StageData.reservedNames.contains(key))
 					variables.set(key, spr);
+
+			// Vortex Engine: a stage whose "objects" list has pictures but no gf / dad / boyfriend entries (anything
+			// written by hand rather than with the Stage Editor) used to show NO characters at all. Add the ones
+			// the list left out, on top of the stage pictures.
+			if(!stageData.hide_girlfriend && !list.exists('gf')) add(gfGroup);
+			if(!list.exists('dad')) add(dadGroup);
+			if(!list.exists('boyfriend')) add(boyfriendGroup);
 		}
 		else
 		{

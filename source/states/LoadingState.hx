@@ -54,8 +54,20 @@ class LoadingState extends MusicBeatState
 		super();
 	}
 
-	inline static public function loadAndSwitchState(target:FlxState, stopMusic = false, intrusive:Bool = true)
+	static public function loadAndSwitchState(target:FlxState, stopMusic = false, intrusive:Bool = true)
+	{
+		// Vortex Engine: explain a missing Inst instead of playing a 28 ms beep (see PlayState.missingInstState)
+		if(Std.isOfType(target, PlayState))
+		{
+			var problem:flixel.FlxState = PlayState.missingInstState();
+			if(problem != null)
+			{
+				MusicBeatState.switchState(problem);
+				return;
+			}
+		}
 		MusicBeatState.switchState(getNextState(target, stopMusic, intrusive));
+	}
 	
 	var target:FlxState = null;
 	var stopMusic:Bool = false;

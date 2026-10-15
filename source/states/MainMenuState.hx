@@ -2,6 +2,7 @@ package states;
 
 import backend.VortexConfig;
 import objects.CosmicBackground;
+import objects.MenuButton;
 import flixel.FlxObject;
 import flixel.effects.FlxFlicker;
 import lime.app.Application;
@@ -21,9 +22,12 @@ class MainMenuState extends MusicBeatState
 	public static var curColumn:MainMenuColumn = CENTER;
 	var allowMouse:Bool = true; //Turn this off to block mouse movement in menus
 
-	var menuItems:FlxTypedGroup<FlxSprite>;
-	var leftItem:FlxSprite;
-	var rightItem:FlxSprite;
+	var menuItems:FlxTypedGroup<MenuButton>;
+	var leftItem:MenuButton;
+	var rightItem:MenuButton;
+	var titleBig:FlxText;
+	var titleSmall:FlxText;
+	var titleTime:Float = 0;
 
 	//Centered/Text options
 	var optionShit:Array<String> = [
@@ -59,7 +63,7 @@ class MainMenuState extends MusicBeatState
 
 		var yScroll:Float = 0.25;
 		// Vortex Engine: cosmic space backdrop replaces the stock menu background
-		cosmicBg = new CosmicBackground(Std.int(FlxG.width), Std.int(FlxG.height), true);
+		cosmicBg = new CosmicBackground(Std.int(FlxG.width), Std.int(FlxG.height), true, FlxG.width * 0.72);
 		add(cosmicBg);
 
 		camFollow = new FlxObject(0, 0, 1, 1);
@@ -72,22 +76,41 @@ class MainMenuState extends MusicBeatState
 		magenta.visible = false;
 		add(magenta);
 
-		menuItems = new FlxTypedGroup<FlxSprite>();
+		menuItems = new FlxTypedGroup<MenuButton>();
 		add(menuItems);
 
+		// Vortex Engine: big title block, top left
+		var nameParts:Array<String> = VortexConfig.engineName.toUpperCase().split(' ');
+		var bigName:String = nameParts[0];
+		var smallName:String = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'MAIN MENU';
+		titleBig = new FlxText(56, 26, 700, bigName, 92);
+		titleBig.setFormat(Paths.font("vcr.ttf"), 92, CosmicBackground.TEXT_BRIGHT, LEFT, FlxTextBorderStyle.OUTLINE, CosmicBackground.NEBULA_VIOLET);
+		titleBig.borderSize = 4;
+		titleBig.scrollFactor.set();
+		add(titleBig);
+		titleSmall = new FlxText(62, 118, 700, smallName, 28);
+		titleSmall.setFormat(Paths.font("vcr.ttf"), 28, CosmicBackground.ACCENT_CYAN, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		titleSmall.scrollFactor.set();
+		add(titleSmall);
+
+		var accents:Array<Int> = [CosmicBackground.NEBULA_VIOLET, CosmicBackground.ACCENT_CYAN, CosmicBackground.NEBULA_MAGENTA, CosmicBackground.NEBULA_TEAL, CosmicBackground.NEBULA_VIOLET];
+		var gap:Float = 14;
+		var startY:Float = 188 + (4 - optionShit.length) * 40;
 		for (num => option in optionShit)
 		{
-			var item:FlxSprite = createMenuItem(option, 0, (num * 140) + 90);
-			item.y += (4 - optionShit.length) * 70; // Offsets for when you have anything other than 4 items
-			item.screenCenter(X);
+			var btn:MenuButton = createMenuItem(option, 60, startY + num * (76 + gap), accents[num % accents.length], false, num);
+			btn.introDelay = 0.12 + num * 0.09;
 		}
 
 		if (leftOption != null)
-			leftItem = createMenuItem(leftOption, 60, 490);
+		{
+			leftItem = createMenuItem(leftOption, 60, 612, CosmicBackground.NEBULA_TEAL, true, 0);
+			leftItem.introDelay = 0.6;
+		}
 		if (rightOption != null)
 		{
-			rightItem = createMenuItem(rightOption, FlxG.width - 60, 490);
-			rightItem.x -= rightItem.width;
+			rightItem = createMenuItem(rightOption, FlxG.width - 60 - 300, 612, CosmicBackground.NEBULA_MAGENTA, true, 0);
+			rightItem.introDelay = 0.7;
 		}
 
 		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0, VortexConfig.engineName + " v" + psychEngineVersion, 12);
@@ -122,19 +145,14 @@ class MainMenuState extends MusicBeatState
 		FlxG.camera.follow(camFollow, null, 0.15);
 	}
 
-	function createMenuItem(name:String, x:Float, y:Float):FlxSprite
+	function createMenuItem(name:String, x:Float, y:Float, accent:Int, small:Bool, index:Int):MenuButton
 	{
-		var menuItem:FlxSprite = new FlxSprite(x, y);
-		menuItem.frames = Paths.getSparrowAtlas('mainmenu/menu_$name');
-		menuItem.animation.addByPrefix('idle', '$name idle', 24, true);
-		menuItem.animation.addByPrefix('selected', '$name selected', 24, true);
-		menuItem.animation.play('idle');
-		menuItem.updateHitbox();
-		
-		menuItem.antialiasing = ClientPrefs.data.antialiasing;
-		menuItem.scrollFactor.set();
-		menuItems.add(menuItem);
-		return menuItem;
+		var pretty:String = name.replace('_', ' ');
+		var btn:MenuButton = new MenuButton(name, pretty, small ? '' : '0' + (index + 1), accent, small);
+		btn.baseX = x;
+		btn.y = y;
+		menuItems.add(btn);
+		return btn;
 	}
 
 	var selectedSomethin:Bool = false;
@@ -160,7 +178,7 @@ class MainMenuState extends MusicBeatState
 				FlxG.mouse.visible = true;
 				timeNotMoving = 0;
 
-				var selectedItem:FlxSprite;
+				var selectedItem:MenuButton;
 				switch(curColumn)
 				{
 					case CENTER:
@@ -195,10 +213,10 @@ class MainMenuState extends MusicBeatState
 					var distItem:Int = -1;
 					for (i in 0...optionShit.length)
 					{
-						var memb:FlxSprite = menuItems.members[i];
+						var memb:MenuButton = menuItems.members[i];
 						if(FlxG.mouse.overlaps(memb))
 						{
-							var distance:Float = Math.sqrt(Math.pow(memb.getGraphicMidpoint().x - FlxG.mouse.screenX, 2) + Math.pow(memb.getGraphicMidpoint().y - FlxG.mouse.screenY, 2));
+							var distance:Float = Math.abs(memb.midY() - FlxG.mouse.screenY);
 							if (dist < 0 || distance < dist)
 							{
 								dist = distance;
@@ -268,7 +286,7 @@ class MainMenuState extends MusicBeatState
 				if (ClientPrefs.data.flashing)
 					FlxFlicker.flicker(magenta, 1.1, 0.15, false);
 
-				var item:FlxSprite;
+				var item:MenuButton;
 				var option:String;
 				switch(curColumn)
 				{
@@ -344,6 +362,15 @@ class MainMenuState extends MusicBeatState
 			#end
 		}
 
+		// Vortex Engine: title drops in and its outline colour slowly breathes between violet and cyan
+		titleTime += elapsed;
+		var tIn:Float = Math.max(0, Math.min(1, titleTime / 0.6));
+		var tE:Float = 1 - Math.pow(1 - tIn, 3);
+		titleBig.y = 26 - 90 * (1 - tE);
+		titleBig.alpha = tE;
+		titleSmall.alpha = tE;
+		titleBig.borderColor = FlxColor.interpolate(CosmicBackground.NEBULA_VIOLET, CosmicBackground.ACCENT_CYAN, 0.5 + 0.5 * Math.sin(titleTime * 0.8));
+
 		super.update(elapsed);
 	}
 
@@ -354,12 +381,9 @@ class MainMenuState extends MusicBeatState
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 
 		for (item in menuItems)
-		{
-			item.animation.play('idle');
-			item.centerOffsets();
-		}
+			item.setSelected(false);
 
-		var selectedItem:FlxSprite;
+		var selectedItem:MenuButton;
 		switch(curColumn)
 		{
 			case CENTER:
@@ -369,8 +393,7 @@ class MainMenuState extends MusicBeatState
 			case RIGHT:
 				selectedItem = rightItem;
 		}
-		selectedItem.animation.play('selected');
-		selectedItem.centerOffsets();
-		camFollow.y = selectedItem.getGraphicMidpoint().y;
+		selectedItem.setSelected(true);
+		camFollow.y = selectedItem.midY();
 	}
 }
