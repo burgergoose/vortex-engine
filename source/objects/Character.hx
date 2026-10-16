@@ -197,20 +197,21 @@ class Character extends FlxSprite
 		#end
 
 		imageFile = json.image;
-		jsonScale = json.scale;
-		if(json.scale != 1) {
+		// Vortex Engine: hand-written / older character jsons often leave fields out; use safe defaults instead of crashing later
+		jsonScale = (json.scale != null) ? json.scale : 1;
+		if(jsonScale != 1) {
 			scale.set(jsonScale, jsonScale);
 			updateHitbox();
 		}
 
 		// positioning
-		positionArray = json.position;
-		cameraPosition = json.camera_position;
+		positionArray = (json.position != null && json.position.length > 1) ? json.position : [0, 0];
+		cameraPosition = (json.camera_position != null && json.camera_position.length > 1) ? json.camera_position : [0, 0];
 
 		// data
-		healthIcon = json.healthicon;
-		singDuration = json.sing_duration;
-		flipX = (json.flip_x != isPlayer);
+		healthIcon = (json.healthicon != null && ('' + json.healthicon).length > 0) ? json.healthicon : 'face';
+		singDuration = (json.sing_duration != null) ? json.sing_duration : 4;
+		flipX = (json.flip_x == true) != isPlayer;
 		healthColorArray = (json.healthbar_colors != null && json.healthbar_colors.length > 2) ? json.healthbar_colors : [161, 161, 161];
 		vocalsFile = json.vocals_file != null ? json.vocals_file : '';
 		originalFlipX = (json.flip_x == true);

@@ -81,13 +81,43 @@ class StageData {
 			var path:String = Paths.getPath('stages/' + stage + '.json', TEXT, null, true);
 			#if MODS_ALLOWED
 			if(FileSystem.exists(path))
-				return cast tjson.TJSON.parse(File.getContent(path));
+				return sanitize(cast tjson.TJSON.parse(File.getContent(path)));
 			#else
 			if(Assets.exists(path))
-				return cast tjson.TJSON.parse(Assets.getText(path));
+				return sanitize(cast tjson.TJSON.parse(Assets.getText(path)));
 			#end
 		}
+		catch(e:Dynamic)
+		{
+			trace('ERROR! could not read stage "$stage": $e');
+		}
 		return dummy();
+	}
+
+	/** Vortex: fills in anything a hand-written/older stage json leaves out so a half-finished mod stage can't crash the game. **/
+	public static function sanitize(file:StageFile):StageFile
+	{
+		var d:StageFile = dummy();
+		if(file == null) return d;
+		if(file.directory == null) file.directory = d.directory;
+		var zoom:Dynamic = Reflect.field(file, 'defaultZoom');
+		if(zoom == null || Math.isNaN(zoom)) file.defaultZoom = d.defaultZoom;
+		if(file.stageUI == null) file.stageUI = (file.isPixelStage == true) ? 'pixel' : d.stageUI;
+		if(!isPair(file.boyfriend)) file.boyfriend = d.boyfriend;
+		if(!isPair(file.girlfriend)) file.girlfriend = d.girlfriend;
+		if(!isPair(file.opponent)) file.opponent = d.opponent;
+		if(Reflect.field(file, 'hide_girlfriend') == null) file.hide_girlfriend = false;
+		if(!isPair(file.camera_boyfriend)) file.camera_boyfriend = d.camera_boyfriend;
+		if(!isPair(file.camera_opponent)) file.camera_opponent = d.camera_opponent;
+		if(!isPair(file.camera_girlfriend)) file.camera_girlfriend = d.camera_girlfriend;
+		if(file.camera_speed == null) file.camera_speed = 1;
+		if(file._editorMeta == null) file._editorMeta = d._editorMeta;
+		return file;
+	}
+
+	static function isPair(a:Dynamic):Bool
+	{
+		return a != null && Std.isOfType(a, Array) && (a : Array<Dynamic>).length >= 2;
 	}
 
 	public static function vanillaSongStage(songName):String

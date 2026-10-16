@@ -72,12 +72,14 @@ class Song
 			if(Reflect.hasField(songJson, 'player3')) Reflect.deleteField(songJson, 'player3');
 		}
 
+		if(songJson.notes == null) songJson.notes = [];
 		if(songJson.events == null)
 		{
 			songJson.events = [];
 			for (secNum in 0...songJson.notes.length)
 			{
 				var sec:SwagSection = songJson.notes[secNum];
+				if(sec.sectionNotes == null) sec.sectionNotes = [];
 
 				var i:Int = 0;
 				var notes:Array<Dynamic> = sec.sectionNotes;
@@ -101,6 +103,7 @@ class Song
 
 		for (section in sectionsData)
 		{
+			if(section.sectionNotes == null) section.sectionNotes = [];
 			var beats:Null<Float> = cast section.sectionBeats;
 			if (beats == null || Math.isNaN(beats))
 			{
@@ -114,7 +117,12 @@ class Song
 				note[1] = (note[1] % 4) + (gottaHitNote ? 0 : 4);
 
 				if(!Std.isOfType(note[3], String))
-					note[3] = Note.defaultNoteTypes[note[3]]; //compatibility with Week 7 and 0.1-0.3 psych charts
+				{
+					//compatibility with Week 7 and 0.1-0.3 psych charts
+					// Vortex Engine: old/foreign charts may have no 4th value or a true/false there; that used to crash the loader
+					var oldType:Dynamic = note[3];
+					note[3] = (Std.isOfType(oldType, Int) && oldType >= 0 && oldType < Note.defaultNoteTypes.length) ? Note.defaultNoteTypes[oldType] : '';
+				}
 			}
 		}
 	}
@@ -181,6 +189,49 @@ class Song
 					}
 			}
 		}
+		sanitize(songJson);
 		return songJson;
+	}
+
+	/** Vortex Engine: charts from other engines / hand edits often leave fields out. Fill them in so the song loads instead of crashing. **/
+	public static function sanitize(songJson:SwagSong):Void
+	{
+		if(songJson == null) return;
+		var raw:Dynamic = songJson;
+		if(songJson.notes == null) songJson.notes = [];
+		if(songJson.events == null) songJson.events = [];
+		else
+		{
+			// drop broken events ([time, [[name, v1, v2], ...]]) rather than crashing while the song is being built
+			var e:Int = songJson.events.length;
+			while(e-- > 0)
+			{
+				var ev:Dynamic = songJson.events[e];
+				if(ev == null || !Std.isOfType(ev, Array) || ev.length < 2 || !Std.isOfType(ev[1], Array)) songJson.events.splice(e, 1);
+			}
+		}
+		if(raw.bpm == null || Math.isNaN(raw.bpm) || raw.bpm <= 0) songJson.bpm = 100;
+		if(raw.speed == null || Math.isNaN(raw.speed) || raw.speed <= 0) songJson.speed = 1;
+		if(raw.offset == null) songJson.offset = 0;
+		if(raw.needsVoices == null) songJson.needsVoices = true;
+		if(songJson.player1 == null || songJson.player1.length < 1) songJson.player1 = 'bf';
+		if(songJson.player2 == null || songJson.player2.length < 1) songJson.player2 = 'dad';
+		if(songJson.gfVersion == null || songJson.gfVersion.length < 1) songJson.gfVersion = 'gf';
+
+		for (section in songJson.notes)
+		{
+			if(section.sectionNotes == null) section.sectionNotes = [];
+			var rs:Dynamic = section;
+			if(rs.sectionBeats == null || Math.isNaN(rs.sectionBeats) || rs.sectionBeats <= 0) section.sectionBeats = 4;
+			if(rs.mustHitSection == null) section.mustHitSection = true;
+
+			var i:Int = section.sectionNotes.length;
+			while(i-- > 0)
+			{
+				var n:Array<Dynamic> = section.sectionNotes[i];
+				if(n == null || n.length < 3 || n[0] == null || n[1] == null) { section.sectionNotes.splice(i, 1); continue; }
+				if(n[2] == null) n[2] = 0;
+			}
+		}
 	}
 }

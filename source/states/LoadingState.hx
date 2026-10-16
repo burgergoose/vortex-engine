@@ -557,7 +557,7 @@ class LoadingState extends MusicBeatState
 					for (sprite in stageData.objects)
 					{
 						if(sprite.type == 'sprite' || sprite.type == 'animatedSprite')
-							if((sprite.filters < 0 || StageData.validateVisibility(sprite.filters)) && !imgs.contains(sprite.image))
+							if(sprite.image != null && (sprite.filters == null || sprite.filters < 0 || StageData.validateVisibility(sprite.filters)) && !imgs.contains(sprite.image))
 								imgs.push(sprite.image);
 					}
 				}
@@ -611,7 +611,11 @@ class LoadingState extends MusicBeatState
 			return true;
 		}, isIntrusive))
 		.onError((err:Dynamic) -> {
+			// Vortex Engine: a failed prepare used to leave the loading screen waiting forever; just carry on with what was gathered
 			trace('ERROR! while preparing song: $err');
+			try { clearInvalids(); startThreads(); }
+			catch(e:Dynamic) { loadMax = 0; loaded = 0; }
+			initialThreadCompleted = true;
 		});
 	}
 

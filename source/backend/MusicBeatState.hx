@@ -205,9 +205,17 @@ class MusicBeatState extends FlxState
 
 	function stagesFunc(func:BaseStage->Void)
 	{
-		for (stage in stages)
+		// Vortex Engine: a broken built-in stage is switched off (and logged) instead of crashing the song
+		for (stage in stages.copy())
 			if(stage != null && stage.exists && stage.active)
-				func(stage);
+			{
+				try { func(stage); }
+				catch(e:Dynamic)
+				{
+					trace('ERROR! stage callback failed, disabling that stage script: $e');
+					stage.active = false;
+				}
+			}
 	}
 
 	function getBeatsOnSection()

@@ -308,6 +308,10 @@ class StoryMenuState extends MusicBeatState
 			catch(e:Dynamic)
 			{
 				trace('ERROR! $e');
+				selectedWeek = false; // otherwise the menu stays locked after a failed load
+				// Vortex Engine: tell the player why the week didn't start instead of doing nothing
+				FlxG.sound.play(Paths.sound('cancelMenu'));
+				Main.showToast('Could not load this week\'s first song:\n' + Std.string(e).split('\n')[0] + '\nCheck the chart (.json) in mods/<your mod>/data/<song>/');
 				return;
 			}
 			

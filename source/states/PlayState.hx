@@ -399,19 +399,43 @@ class PlayState extends MusicBeatState
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
-		switch (curStage)
+		// Vortex Engine: the hardcoded Week 2-7 stages need the original game's pictures, which aren't included.
+		// A mod stage/song that happens to use one of those names (school, limo, tank...) used to crash while loading.
+		// Only build the hardcoded stage when its pictures exist, and never let it take the whole song down.
+		var hardcodedProbe:Map<String, String> = [
+			'spooky' => 'halloween_bg', 'philly' => 'philly/sky', 'limo' => 'limo/limoSunset', 'mall' => 'christmas/bgWalls',
+			'mallEvil' => 'christmas/evilBG', 'school' => 'weeb/weebSky', 'schoolEvil' => 'weeb/animatedEvilSchool',
+			'tank' => 'tankSky', 'phillyStreets' => 'phillyStreets/phillySkybox', 'phillyBlazin' => 'phillyBlazin/skyBlur'
+		];
+		var canBuildHardcoded:Bool = true;
+		if(hardcodedProbe.exists(curStage) && !Paths.fileExists('images/' + hardcodedProbe.get(curStage) + '.png', IMAGE) && !Paths.fileExists('images/' + hardcodedProbe.get(curStage) + '.xml', TEXT))
 		{
-			case 'stage': new StageWeek1(); 			//Week 1
-			case 'spooky': new Spooky();				//Week 2
-			case 'philly': new Philly();				//Week 3
-			case 'limo': new Limo();					//Week 4
-			case 'mall': new Mall();					//Week 5 - Cocoa, Eggnog
-			case 'mallEvil': new MallEvil();			//Week 5 - Winter Horrorland
-			case 'school': new School();				//Week 6 - Senpai, Roses
-			case 'schoolEvil': new SchoolEvil();		//Week 6 - Thorns
-			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
-			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
-			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
+			canBuildHardcoded = false;
+			trace('Stage "$curStage": built-in pictures not found (images/${hardcodedProbe.get(curStage)}), skipping the hardcoded stage and using only the stage json/scripts.');
+		}
+		if(canBuildHardcoded)
+		{
+			try
+			{
+				switch (curStage)
+				{
+					case 'stage': new StageWeek1(); 			//Week 1
+					case 'spooky': new Spooky();				//Week 2
+					case 'philly': new Philly();				//Week 3
+					case 'limo': new Limo();					//Week 4
+					case 'mall': new Mall();					//Week 5 - Cocoa, Eggnog
+					case 'mallEvil': new MallEvil();			//Week 5 - Winter Horrorland
+					case 'school': new School();				//Week 6 - Senpai, Roses
+					case 'schoolEvil': new SchoolEvil();		//Week 6 - Thorns
+					case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
+					case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
+					case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
+				}
+			}
+			catch(e:Dynamic)
+			{
+				trace('ERROR! hardcoded stage "$curStage" failed to build: $e');
+			}
 		}
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
@@ -1378,7 +1402,9 @@ class PlayState extends MusicBeatState
 				var spawnTime: Float = songNotes[0];
 				var noteColumn: Int = Std.int(songNotes[1] % totalColumns);
 				var holdLength: Float = songNotes[2];
-				var noteType: String = !Std.isOfType(songNotes[3], String) ? Note.defaultNoteTypes[songNotes[3]] : songNotes[3];
+				var noteType: String = '';
+				if (Std.isOfType(songNotes[3], String)) noteType = songNotes[3];
+				else if (Std.isOfType(songNotes[3], Int) && songNotes[3] >= 0 && songNotes[3] < Note.defaultNoteTypes.length) noteType = Note.defaultNoteTypes[songNotes[3]];
 				if (Math.isNaN(holdLength))
 					holdLength = 0.0;
 
@@ -1542,11 +1568,14 @@ class PlayState extends MusicBeatState
 
 	function makeEvent(event:Array<Dynamic>, i:Int)
 	{
+		// Vortex Engine: events with missing/non-text values used to crash on .toLowerCase() etc.
+		var raw:Array<Dynamic> = event[1][i];
+		if(raw == null || raw.length < 1 || raw[0] == null) return;
 		var subEvent:EventNote = {
 			strumTime: event[0] + ClientPrefs.data.noteOffset,
-			event: event[1][i][0],
-			value1: event[1][i][1],
-			value2: event[1][i][2]
+			event: Std.string(raw[0]),
+			value1: (raw.length > 1 && raw[1] != null) ? Std.string(raw[1]) : '',
+			value2: (raw.length > 2 && raw[2] != null) ? Std.string(raw[2]) : ''
 		};
 		eventNotes.push(subEvent);
 		eventPushed(subEvent);
@@ -2516,7 +2545,30 @@ class PlayState extends MusicBeatState
 					FlxTransitionableState.skipNextTransOut = true;
 					prevCamFollow = camFollow;
 
-					Song.loadFromJson(PlayState.storyPlaylist[0] + difficulty, PlayState.storyPlaylist[0]);
+					// Vortex Engine: the next song of a week may not have a chart for this exact difficulty (or any
+					// chart at all). Pick one that exists; if none does, return to the Story menu with a note
+					// instead of crashing the game.
+					try
+					{
+						var nextDiff:Int = Difficulty.pickAvailable(PlayState.storyPlaylist[0], storyDifficulty);
+						if(nextDiff != storyDifficulty)
+						{
+							storyDifficulty = nextDiff;
+							difficulty = Difficulty.getFilePath();
+						}
+						Song.loadFromJson(PlayState.storyPlaylist[0] + difficulty, PlayState.storyPlaylist[0]);
+					}
+					catch(e:Dynamic)
+					{
+						trace('ERROR loading next story song "${PlayState.storyPlaylist[0]}": $e');
+						Main.showToast('Could not load the next song (' + PlayState.storyPlaylist[0] + '). Is its chart in data/' + Paths.formatToSongPath(PlayState.storyPlaylist[0]) + '/ ?');
+						Mods.loadTopMod();
+						canResync = false;
+						FlxG.sound.playMusic(Paths.music('freakyMenu'));
+						MusicBeatState.switchState(new StoryMenuState());
+						transitioning = true;
+						return true;
+					}
 					FlxG.sound.music.stop();
 
 					canResync = false;

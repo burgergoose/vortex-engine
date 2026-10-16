@@ -10,6 +10,7 @@ import backend.VortexConfig;
 
 import flixel.graphics.FlxGraphic;
 import flixel.FlxGame;
+import flixel.addons.transition.FlxTransitionableState;
 import flixel.FlxState;
 import haxe.io.Path;
 import openfl.Assets;
@@ -282,6 +283,34 @@ class Main extends Sprite
 
 	// Code was entirely made by sqirra-rng for their fnf engine named "Izzy Engine", big props to them!!!
 	// very cool person for real they don't get enough credit for their work
+	/** Vortex Engine: small message at the top of the window that fades out by itself (used after crash recovery). */
+	public static function showToast(text:String):Void
+	{
+		try
+		{
+			var tf:openfl.text.TextField = new openfl.text.TextField();
+			var fontName:String = '_sans';
+			try { fontName = openfl.utils.Assets.getFont(backend.Paths.font('vcr.ttf')).fontName; } catch (_:Dynamic) {}
+			tf.embedFonts = (fontName != '_sans');
+			tf.defaultTextFormat = new openfl.text.TextFormat(fontName, 15, 0xFFFFFF);
+			tf.background = true;
+			tf.backgroundColor = 0x7A1020;
+			tf.width = 700;
+			tf.height = 84;
+			tf.multiline = true;
+			tf.wordWrap = true;
+			tf.selectable = false;
+			tf.mouseEnabled = false;
+			tf.text = text;
+			tf.x = 20;
+			tf.y = 20;
+			Lib.current.stage.addChild(tf);
+			haxe.Timer.delay(function() { try { Lib.current.stage.removeChild(tf); } catch (_:Dynamic) {} }, 9000);
+			trace('toast shown: ' + text.split('\n')[0]);
+		}
+		catch (e:Dynamic) { trace('toast failed: $e'); }
+	}
+
 	#if CRASH_HANDLER
 	function onCrash(e:UncaughtErrorEvent):Void
 	{
@@ -326,11 +355,38 @@ class Main extends Sprite
 		Sys.println(errMsg);
 		Sys.println("Crash dump saved in " + Path.normalize(path));
 
+		// Vortex Engine: try to RECOVER instead of closing the whole game. The crash is logged (above), the
+		// broken screen is dropped and the player lands on the main menu with a short on-screen note.
+		// If errors keep happening right after recovering (3 within 10 seconds) the game closes as before.
+		var now:Float = Sys.time();
+		recentCrashes = recentCrashes.filter(function(t:Float) return now - t < 10);
+		recentCrashes.push(now);
+		if (recentCrashes.length <= 2 && FlxG.game != null)
+		{
+			try
+			{
+				e.preventDefault();
+				var firstLine:String = e.error != null ? Std.string(e.error) : 'unknown error';
+				FlxTransitionableState.skipNextTransIn = true;
+				FlxTransitionableState.skipNextTransOut = true;
+				try { if (FlxG.sound.music != null) FlxG.sound.music.stop(); } catch (_:Dynamic) {}
+				FlxG.switchState(new states.MainMenuState());
+				try { FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7); } catch (_:Dynamic) {}
+				showToast('Something went wrong and the game recovered.\n(' + firstLine + ')\nDetails: ' + Path.normalize(path));
+				return;
+			}
+			catch (_:Dynamic) {}
+		}
+
 		Application.current.window.alert(errMsg, "Error!");
 		#if DISCORD_ALLOWED
 		DiscordClient.shutdown();
 		#end
 		Sys.exit(1);
 	}
+
+	static var recentCrashes:Array<Float> = [];
+
+
 	#end
 }

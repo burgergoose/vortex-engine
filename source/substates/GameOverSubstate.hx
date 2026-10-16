@@ -84,7 +84,13 @@ class GameOverSubstate extends MusicBeatSubstate
 		
 		PlayState.instance.setOnScripts('inGameOver', true);
 		PlayState.instance.callOnScripts('onGameOverStart', []);
-		FlxG.sound.music.loadEmbedded(Paths.music(loopSoundName), true);
+		// Vortex Engine: a missing loop track or a missing music object used to crash the game over screen
+		try
+		{
+			if(FlxG.sound.music == null) FlxG.sound.music = new flixel.sound.FlxSound();
+			FlxG.sound.music.loadEmbedded(Paths.music(loopSoundName), true);
+		}
+		catch(e:Dynamic) { trace('Game over music failed: $e'); }
 
 		if(characterName == 'pico-dead')
 		{
@@ -139,8 +145,11 @@ class GameOverSubstate extends MusicBeatSubstate
 		PlayState.instance.callOnScripts('onUpdate', [elapsed]);
 
 		var justPlayedLoop:Bool = false;
-		if (!boyfriend.isAnimationNull() && boyfriend.getAnimationName() == 'firstDeath' && boyfriend.isAnimationFinished())
+		// Vortex Engine: characters without a "firstDeath" animation would never start the loop music / retry prompt
+		var noFirstDeath:Bool = !boyfriend.hasAnimation('firstDeath') && !loopStarted;
+		if (noFirstDeath || (!boyfriend.isAnimationNull() && boyfriend.getAnimationName() == 'firstDeath' && boyfriend.isAnimationFinished()))
 		{
+			loopStarted = true;
 			boyfriend.playAnim('deathLoop');
 			if(overlay != null && overlay.animation.exists('deathLoop'))
 			{
@@ -196,7 +205,7 @@ class GameOverSubstate extends MusicBeatSubstate
 				}
 			}
 			
-			if (FlxG.sound.music.playing)
+			if (FlxG.sound.music != null && FlxG.sound.music.playing)
 			{
 				Conductor.songPosition = FlxG.sound.music.time;
 			}
@@ -204,6 +213,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		PlayState.instance.callOnScripts('onUpdatePost', [elapsed]);
 	}
 
+	var loopStarted:Bool = false;
 	var isEnding:Bool = false;
 	function coolStartDeath(?volume:Float = 1):Void
 	{
@@ -227,7 +237,7 @@ class GameOverSubstate extends MusicBeatSubstate
 				overlay.animation.play('deathConfirm');
 				overlay.offset.set(overlayConfirmOffsets.x, overlayConfirmOffsets.y);
 			}
-			FlxG.sound.music.stop();
+			if(FlxG.sound.music != null) FlxG.sound.music.stop();
 			FlxG.sound.play(Paths.music(endSoundName));
 			new FlxTimer().start(0.7, function(tmr:FlxTimer)
 			{
