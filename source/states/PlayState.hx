@@ -399,44 +399,8 @@ class PlayState extends MusicBeatState
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
-		// Vortex Engine: the hardcoded Week 2-7 stages need the original game's pictures, which aren't included.
-		// A mod stage/song that happens to use one of those names (school, limo, tank...) used to crash while loading.
-		// Only build the hardcoded stage when its pictures exist, and never let it take the whole song down.
-		var hardcodedProbe:Map<String, String> = [
-			'spooky' => 'halloween_bg', 'philly' => 'philly/sky', 'limo' => 'limo/limoSunset', 'mall' => 'christmas/bgWalls',
-			'mallEvil' => 'christmas/evilBG', 'school' => 'weeb/weebSky', 'schoolEvil' => 'weeb/animatedEvilSchool',
-			'tank' => 'tankSky', 'phillyStreets' => 'phillyStreets/phillySkybox', 'phillyBlazin' => 'phillyBlazin/skyBlur'
-		];
-		var canBuildHardcoded:Bool = true;
-		if(hardcodedProbe.exists(curStage) && !Paths.fileExists('images/' + hardcodedProbe.get(curStage) + '.png', IMAGE) && !Paths.fileExists('images/' + hardcodedProbe.get(curStage) + '.xml', TEXT))
-		{
-			canBuildHardcoded = false;
-			trace('Stage "$curStage": built-in pictures not found (images/${hardcodedProbe.get(curStage)}), skipping the hardcoded stage and using only the stage json/scripts.');
-		}
-		if(canBuildHardcoded)
-		{
-			try
-			{
-				switch (curStage)
-				{
-					case 'stage': new StageWeek1(); 			//Week 1
-					case 'spooky': new Spooky();				//Week 2
-					case 'philly': new Philly();				//Week 3
-					case 'limo': new Limo();					//Week 4
-					case 'mall': new Mall();					//Week 5 - Cocoa, Eggnog
-					case 'mallEvil': new MallEvil();			//Week 5 - Winter Horrorland
-					case 'school': new School();				//Week 6 - Senpai, Roses
-					case 'schoolEvil': new SchoolEvil();		//Week 6 - Thorns
-					case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
-					case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
-					case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
-				}
-			}
-			catch(e:Dynamic)
-			{
-				trace('ERROR! hardcoded stage "$curStage" failed to build: $e');
-			}
-		}
+		var membersBeforeStage:Array<flixel.FlxBasic> = members.copy(); // used by the built-in "Change Stage" event
+		buildHardcodedStage(curStage);
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
@@ -467,7 +431,10 @@ class PlayState extends MusicBeatState
 			var list:Map<String, FlxSprite> = StageData.addObjectsToState(stageData.objects, !stageData.hide_girlfriend ? gfGroup : null, dadGroup, boyfriendGroup, this);
 			for (key => spr in list)
 				if(!StageData.reservedNames.contains(key))
+				{
 					variables.set(key, spr);
+					stageVarKeys.push(key);
+				}
 
 			// Vortex Engine: a stage whose "objects" list has pictures but no gf / dad / boyfriend entries (anything
 			// written by hand rather than with the Stage Editor) used to show NO characters at all. Add the ones
@@ -482,6 +449,7 @@ class PlayState extends MusicBeatState
 			add(dadGroup);
 			add(boyfriendGroup);
 		}
+		stageMembers = [for (m in members) if(m != null && !membersBeforeStage.contains(m) && m != luaDebugGroup) m];
 		
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 		// "SCRIPTS FOLDER" SCRIPTS
@@ -1546,6 +1514,18 @@ class PlayState extends MusicBeatState
 
 			case 'Play Sound':
 				Paths.sound(event.value1); //Precache sound
+
+			case 'Change Stage':
+				// Vortex Engine: load the pictures of the stage we'll switch to now (Value 2), so the switch doesn't stutter
+				try
+				{
+					var sd:StageFile = StageData.getStageFile(event.value2.trim());
+					if(sd.objects != null)
+						for (o in sd.objects)
+							if((o.type == 'sprite' || o.type == 'animatedSprite') && o.image != null)
+								Paths.image(o.image);
+				}
+				catch(e:Dynamic) {}
 		}
 		stagesFunc(function(stage:BaseStage) stage.eventPushedUnique(event));
 	}
@@ -2117,6 +2097,166 @@ class PlayState extends MusicBeatState
 		}
 	}
 
+	// ---- Vortex Engine: built-in "Change Stage" event -------------------------------------------------
+	var stageMembers:Array<flixel.FlxBasic> = [];
+	var stageVarKeys:Array<String> = [];
+
+	/** Builds the built-in (hardcoded) stage called `name`, if there is one and its pictures exist. **/
+	function buildHardcodedStage(name:String):Void
+	{
+		// Vortex Engine: the hardcoded Week 2-7 stages need the original game's pictures, which aren't included.
+		// A mod stage/song that happens to use one of those names (school, limo, tank...) used to crash while loading.
+		// Only build the hardcoded stage when its pictures exist, and never let it take the whole song down.
+		var hardcodedProbe:Map<String, String> = [
+			'spooky' => 'halloween_bg', 'philly' => 'philly/sky', 'limo' => 'limo/limoSunset', 'mall' => 'christmas/bgWalls',
+			'mallEvil' => 'christmas/evilBG', 'school' => 'weeb/weebSky', 'schoolEvil' => 'weeb/animatedEvilSchool',
+			'tank' => 'tankSky', 'phillyStreets' => 'phillyStreets/phillySkybox', 'phillyBlazin' => 'phillyBlazin/skyBlur'
+		];
+		if(hardcodedProbe.exists(name) && !Paths.fileExists('images/' + hardcodedProbe.get(name) + '.png', IMAGE) && !Paths.fileExists('images/' + hardcodedProbe.get(name) + '.xml', TEXT))
+		{
+			trace('Stage "$name": built-in pictures not found (images/${hardcodedProbe.get(name)}), skipping the hardcoded stage and using only the stage json/scripts.');
+			return;
+		}
+		try
+		{
+			switch (name)
+			{
+				case 'stage': new StageWeek1(); 			//Week 1
+				case 'spooky': new Spooky();				//Week 2
+				case 'philly': new Philly();				//Week 3
+				case 'limo': new Limo();					//Week 4
+				case 'mall': new Mall();					//Week 5 - Cocoa, Eggnog
+				case 'mallEvil': new MallEvil();			//Week 5 - Winter Horrorland
+				case 'school': new School();				//Week 6 - Senpai, Roses
+				case 'schoolEvil': new SchoolEvil();		//Week 6 - Thorns
+				case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
+				case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
+				case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
+			}
+		}
+		catch(e:Dynamic)
+		{
+			trace('ERROR! hardcoded stage "$name" failed to build: $e');
+		}
+	}
+
+	/** Swaps the whole stage in the middle of a song: a stages/<name>.json stage or a built-in one. Characters stay. **/
+	public function changeStage(name:String):Bool
+	{
+		name = (name == null) ? '' : name.trim();
+		if(name.length < 1 || name == curStage) return false;
+		if(!Paths.fileExists('stages/$name.json', TEXT) && !StageData.isBuiltIn(name))
+		{
+			trace('Change Stage: stages/$name.json not found');
+			#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
+			addTextToDebug('Change Stage: stage "$name" not found (stages/$name.json)', FlxColor.RED);
+			#end
+			return false;
+		}
+
+		try
+		{
+			var data:StageFile = StageData.getStageFile(name);
+
+			// where did the old stage sit in the draw order?
+			var insertAt:Int = members.length;
+			for (m in stageMembers)
+			{
+				var i:Int = members.indexOf(m);
+				if(i >= 0 && i < insertAt) insertAt = i;
+			}
+
+			// switch off the old built-in stage code and remove the old pictures (the characters stay)
+			for (st in stages) st.active = false;
+			stages.resize(0);
+			for (m in stageMembers)
+			{
+				remove(m, true);
+				if(m != gfGroup && m != dadGroup && m != boyfriendGroup) m.destroy();
+			}
+			for (key in stageVarKeys) variables.remove(key);
+			stageVarKeys = [];
+
+			// stage values
+			curStage = name;
+			defaultCamZoom = data.defaultZoom;
+			if(data.camera_speed != null) cameraSpeed = data.camera_speed;
+			boyfriendCameraOffset = data.camera_boyfriend;
+			opponentCameraOffset = data.camera_opponent;
+			girlfriendCameraOffset = data.camera_girlfriend;
+			BF_X = data.boyfriend[0]; BF_Y = data.boyfriend[1];
+			GF_X = data.girlfriend[0]; GF_Y = data.girlfriend[1];
+			DAD_X = data.opponent[0]; DAD_Y = data.opponent[1];
+			boyfriendGroup.setPosition(BF_X, BF_Y);
+			dadGroup.setPosition(DAD_X, DAD_Y);
+			gfGroup.setPosition(GF_X, GF_Y);
+
+			// girlfriend may not exist yet if the first stage hid her
+			if(!data.hide_girlfriend && gf == null)
+			{
+				gf = new Character(0, 0, (SONG.gfVersion == null || SONG.gfVersion.length < 1) ? 'gf' : SONG.gfVersion);
+				startCharacterPos(gf);
+				gfGroup.scrollFactor.set(0.95, 0.95);
+				gfGroup.add(gf);
+			}
+
+			// built-in stage code first (its pictures go at the back), then the json objects, then the characters
+			var before:Array<flixel.FlxBasic> = members.copy(); // add() can fill empty slots, so compare instead of slicing
+			buildHardcodedStage(name);
+			var tmp:flixel.group.FlxGroup = new flixel.group.FlxGroup();
+			var made:Array<flixel.FlxBasic> = [for (m in members) if(m != null && !before.contains(m)) m];
+			for (m in made)
+			{
+				if(m == null) continue;
+				remove(m, true);
+				tmp.add(m);
+			}
+
+			var showGf:Bool = !data.hide_girlfriend && gf != null;
+			if(data.objects != null && data.objects.length > 0)
+			{
+				var list:Map<String, FlxSprite> = StageData.addObjectsToState(data.objects, showGf ? gfGroup : null, dadGroup, boyfriendGroup, tmp);
+				for (key => spr in list)
+					if(!StageData.reservedNames.contains(key))
+					{
+						variables.set(key, spr);
+						stageVarKeys.push(key);
+					}
+				if(showGf && !list.exists('gf')) tmp.add(gfGroup);
+				if(!list.exists('dad')) tmp.add(dadGroup);
+				if(!list.exists('boyfriend')) tmp.add(boyfriendGroup);
+			}
+			else
+			{
+				if(showGf) tmp.add(gfGroup);
+				tmp.add(dadGroup);
+				tmp.add(boyfriendGroup);
+			}
+
+			stageMembers = [];
+			for (m in tmp.members)
+			{
+				if(m == null) continue;
+				insert(insertAt++, m);
+				stageMembers.push(m);
+			}
+			tmp.clear();
+
+			#if LUA_ALLOWED startLuasNamed('stages/' + name + '.lua'); #end
+			#if HSCRIPT_ALLOWED startHScriptsNamed('stages/' + name + '.hx'); #end
+			stagesFunc(function(stage:BaseStage) stage.createPost());
+
+			if(!isCameraOnForcedPos) moveCameraSection();
+			setOnScripts('curStage', curStage);
+			return true;
+		}
+		catch(e:Dynamic)
+		{
+			trace('ERROR! Change Stage failed: $e');
+			return false;
+		}
+	}
+
 	public function triggerEvent(eventName:String, value1:String, value2:String, strumTime:Float) {
 		var flValue1:Null<Float> = Std.parseFloat(value1);
 		var flValue2:Null<Float> = Std.parseFloat(value2);
@@ -2241,6 +2381,12 @@ class PlayState extends MusicBeatState
 					}
 				}
 
+
+			case 'Change Stage':
+				// Value 1 = the stage we are in now, Value 2 = the stage to change to (custom or built-in)
+				if(value1.trim().length > 0 && value1.trim() != curStage)
+					trace('Change Stage: Value 1 says "' + value1.trim() + '" but the current stage is "' + curStage + '", changing anyway.');
+				changeStage(value2);
 
 			case 'Change Character':
 				var charType:Int = 0;

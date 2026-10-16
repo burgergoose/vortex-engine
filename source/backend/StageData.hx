@@ -120,6 +120,10 @@ class StageData {
 		return a != null && Std.isOfType(a, Array) && (a : Array<Dynamic>).length >= 2;
 	}
 
+	/** the built-in stage names that have hardcoded code (they work even without a stage json) **/
+	public static function isBuiltIn(name:String):Bool
+		return ['stage', 'spooky', 'philly', 'limo', 'mall', 'mallEvil', 'school', 'schoolEvil', 'tank', 'phillyStreets', 'phillyBlazin'].contains(name);
+
 	public static function vanillaSongStage(songName):String
 	{
 		switch (songName)
