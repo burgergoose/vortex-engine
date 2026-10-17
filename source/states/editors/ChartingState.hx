@@ -54,6 +54,7 @@ enum abstract ChartingTheme(String)
 	var DARK = 'dark';
 	var DEFAULT = 'default';
 	var VSLICE = 'vslice';
+	var VORTEX = 'vortex'; // Vortex Engine: animated cosmic theme
 	var CUSTOM = 'custom';
 }
 
@@ -203,6 +204,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	}
 
 	var bg:FlxSprite;
+	var buddies:objects.ChartBuddies; // Vortex Engine: FPS Plus style little buddies
+	var buddiesEnabled:Bool = true;
+	var cosmicBg:objects.CosmicBackground; // Vortex Engine: shown by the VORTEX theme
 	var theme:ChartingTheme = DEFAULT;
 
 	var copiedNotes:Array<Dynamic> = [];
@@ -246,6 +250,10 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		bg.scrollFactor.set();
 		add(bg);
 
+		cosmicBg = new objects.CosmicBackground(FlxG.width, FlxG.height, true, FlxG.width * 0.5);
+		cosmicBg.visible = false;
+		add(cosmicBg);
+
 		if(chartEditorSave.data.autoSave != null) autoSaveCap = chartEditorSave.data.autoSave;
 		if(chartEditorSave.data.backupLimit != null) backupLimit = chartEditorSave.data.backupLimit;
 		if(chartEditorSave.data.vortex != null) vortexEnabled = chartEditorSave.data.vortex;
@@ -256,7 +264,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		if(chartEditorSave.data.customNextGridColors == null || chartEditorSave.data.customNextGridColors.length < 2)
 			chartEditorSave.data.customNextGridColors = ['5F5F5F', '4A4A4A'];
 		
-		changeTheme(chartEditorSave.data.theme != null ? chartEditorSave.data.theme : DEFAULT, false);
+		if(chartEditorSave.data.vortexThemeApplied != true) // Vortex Engine: everyone gets the new theme once, then it's their choice
+		{
+			chartEditorSave.data.vortexThemeApplied = true;
+			if(chartEditorSave.data.theme == null || chartEditorSave.data.theme == 'default') chartEditorSave.data.theme = VORTEX;
+		}
+		changeTheme(chartEditorSave.data.theme != null ? chartEditorSave.data.theme : VORTEX, false);
 
 		createGrids();
 
@@ -382,6 +395,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		infoText.scrollFactor.set();
 		infoBox.getTab('Information').menu.add(infoText);
 		add(infoBox);
+
+		// Vortex Engine: little buddies that sing along with your notes while the song plays
+		if(chartEditorSave.data.buddies != null) buddiesEnabled = chartEditorSave.data.buddies;
+		buddies = new objects.ChartBuddies(110, 380);
+		buddies.cameras = [camUI];
+		buddies.visible = buddiesEnabled;
+		add(buddies);
 
 		mainBox = new PsychUIBox(mainBoxPosition.x, mainBoxPosition.y, 300, 280, ['Charting', 'Data', 'Events', 'Note', 'Section', 'Song']);
 		mainBox.selectedName = 'Song';
@@ -556,6 +576,10 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				bg.color = 0xFF673AB7;
 				gridColors = [0xFFD0D0D0, 0xFFAFAFAF];
 				gridColorsOther = [0xFF595959, 0xFF464646];
+			case VORTEX:
+				bg.color = 0xFF0B0820;
+				gridColors = [0xFF2C2354, 0xFF251D47];
+				gridColorsOther = [0xFF181334, 0xFF130F2A];
 			case CUSTOM:
 				bg.color = CoolUtil.colorFromString(chartEditorSave.data.customBgColor);
 				gridColors = [CoolUtil.colorFromString(chartEditorSave.data.customGridColors[0]), CoolUtil.colorFromString(chartEditorSave.data.customGridColors[1])];
@@ -565,6 +589,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				gridColors = [0xFFDFDFDF, 0xFFBFBFBF];
 				gridColorsOther = [0xFF5F5F5F, 0xFF4A4A4A];
 		}
+
+		cosmicBg.visible = (theme == VORTEX);
+		bg.alpha = (theme == VORTEX) ? 0.25 : 1;
 
 		if(theme != oldTheme || theme == CUSTOM)
 		{
@@ -1444,6 +1471,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}
 
 			var vortexPlaying:Bool = (vortexEnabled && FlxG.sound.music != null && FlxG.sound.music.playing);
+			if(buddies != null) buddies.setPlaying(buddiesEnabled && FlxG.sound.music != null && FlxG.sound.music.playing);
 			var canPlayHitSound:Bool = (FlxG.sound.music != null && FlxG.sound.music.playing && lastTime < Conductor.songPosition);
 			var hitSoundPlayer:Bool = (hitsoundPlayerStepper.value > 0);
 			var hitSoundOpp:Bool = (hitsoundOpponentStepper.value > 0);
@@ -1467,6 +1495,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 							hitSoundOpp = false;
 						}
 					}
+
+					if(canPlayHitSound && buddiesEnabled && buddies != null)
+						buddies.hit(note.mustPress, Std.int(note.songData[1]) % 4, note.sustainLength);
 
 					if(vortexPlaying)
 					{
@@ -4259,6 +4290,19 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}, btnWid);
 		vortexEditorButton.text.alignment = LEFT;
 		tab_group.add(vortexEditorButton);
+
+		btnY++;
+		btnY += 20;
+		var buddiesButton:PsychUIButton = null;
+		buddiesButton = new PsychUIButton(btnX, btnY, buddiesEnabled ? '  Little Buddies ON' : '  Little Buddies OFF', function()
+		{
+			buddiesEnabled = !buddiesEnabled;
+			chartEditorSave.data.buddies = buddiesEnabled;
+			buddies.visible = buddiesEnabled;
+			buddiesButton.text.text = buddiesEnabled ? '  Little Buddies ON' : '  Little Buddies OFF';
+		}, btnWid);
+		buddiesButton.text.alignment = LEFT;
+		tab_group.add(buddiesButton);
 		
 		btnY++;
 		btnY += 20;
@@ -4440,6 +4484,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					state.add(btn);
 
 					btnY += 60;
+					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Vortex', changeTheme.bind(VORTEX));
+					btn.screenCenter(X);
+					btn.x -= 60;
+					btn.cameras = state.cameras;
+					state.add(btn);
+
 					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Custom', changeTheme.bind(CUSTOM));
 					btn.screenCenter(X);
 					btn.x -= 180;
