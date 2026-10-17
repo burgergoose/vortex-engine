@@ -19,7 +19,32 @@ typedef Achievement =
 
 	//handled automatically, ignore these two
 	@:optional var mod:String;
-	@:optional var ID:Int; 
+	@:optional var ID:Int;
+
+	// Vortex Engine: achievements made with the Achievement Editor (mods/<mod>/achievements/<id>.json)
+	@:optional var icon:String;     // file name in the achievements/ folder (default <id>.png)
+	@:optional var unlock:AchievementUnlock;
+	@:optional var script:String;   // file name in the achievements/ folder (default <id>.lua / <id>.hx if present)
+	@:optional var folder:String;   // resolved: the achievements/ folder this one was loaded from
+}
+
+/**
+ * Vortex Engine: when an achievement unlocks by itself. Checked when a song ends (never in botplay or the chart editor).
+ *   type "manual"        - only scripts unlock it (unlockAchievement / addAchievementScore)
+ *   type "song_complete" - finish `song` (empty = any song)
+ *   type "week_complete" - finish the last song of `week` (week file name) in Story Mode
+ * maxMisses (-1 = any), minAccuracy (0-100), minScore (0 = any) apply to both; for weeks they use the whole week's
+ * misses / score. allowPractice lets Practice Mode count. With maxScore > 0 every qualifying finish adds 1 progress.
+ */
+typedef AchievementUnlock =
+{
+	@:optional var type:String;
+	@:optional var song:String;
+	@:optional var week:String;
+	@:optional var maxMisses:Int;
+	@:optional var minAccuracy:Float;
+	@:optional var minScore:Int;
+	@:optional var allowPractice:Bool;
 }
 
 enum abstract AchievementOp(String)
@@ -220,13 +245,173 @@ class Achievements {
 		var modLoaded:String = Mods.currentModDirectory;
 		Mods.currentModDirectory = null;
 		loadAchievementJson(Paths.mods('data/achievements.json'));
+		loadAchievementFolder(Paths.mods('achievements/'), null); // Vortex Engine
 		for (i => mod in Mods.parseList().enabled)
 		{
 			Mods.currentModDirectory = mod;
 			loadAchievementJson(Paths.mods('$mod/data/achievements.json'));
+			loadAchievementFolder(Paths.mods('$mod/achievements/'), mod); // Vortex Engine
 		}
 		Mods.currentModDirectory = modLoaded;
+		listLoaded = true;
 	}
+
+	/** Vortex Engine: true once reloadList() has run this session. **/
+	public static var listLoaded:Bool = false;
+
+	/** Vortex Engine: lowercase letters, numbers, - and _ only (it's also the file name and the save key). **/
+	public static function isValidId(id:String):Bool
+		return id != null && ~/^[a-z0-9_\-]+$/.match(id);
+
+	/**
+	 * Vortex Engine: loads every <id>.json in a mod's achievements/ folder (made with the Achievement Editor).
+	 * The file name is the achievement's id. Problems go to vortex_script_log.txt instead of popup windows.
+	 */
+	static function loadAchievementFolder(folder:String, mod:String)
+	{
+		if(!FileSystem.exists(folder) || !FileSystem.isDirectory(folder)) return;
+		var files:Array<String> = FileSystem.readDirectory(folder);
+		files.sort(function(a, b) return a < b ? -1 : (a > b ? 1 : 0));
+		for (file in files)
+		{
+			if(!file.toLowerCase().endsWith('.json')) continue;
+			var id:String = file.substr(0, file.length - 5);
+			if(!isValidId(id))
+			{
+				psychlua.ScriptLog.error('Achievements: $folder$file', 'Invalid id "$id" (use lowercase letters, numbers, - and _).');
+				continue;
+			}
+			if(achievements.exists(id))
+			{
+				psychlua.ScriptLog.error('Achievements: $folder$file', 'Another achievement already uses the id "$id", this one was skipped.');
+				continue;
+			}
+			try
+			{
+				var data:Dynamic = tjson.TJSON.parse(File.getContent(folder + file));
+				var achieve:Achievement = {
+					name: (data.name != null) ? Std.string(data.name) : id,
+					description: (data.description != null) ? Std.string(data.description) : '',
+					hidden: data.hidden == true,
+					maxScore: (data.maxScore != null) ? Std.parseFloat(Std.string(data.maxScore)) : 0,
+					maxDecimals: (data.maxDecimals != null) ? Std.parseInt(Std.string(data.maxDecimals)) : 0,
+					icon: (data.icon != null && Std.string(data.icon).length > 0) ? Std.string(data.icon) : null,
+					script: (data.script != null && Std.string(data.script).length > 0) ? Std.string(data.script) : null,
+					unlock: (data.unlock != null) ? data.unlock : {type: 'manual'},
+					folder: folder
+				};
+				if(Math.isNaN(achieve.maxScore)) achieve.maxScore = 0;
+				createAchievement(id, achieve, mod);
+			}
+			catch(e:Dynamic) { psychlua.ScriptLog.error('Achievements: $folder$file', 'Could not read it: $e'); }
+		}
+	}
+	#end
+
+	/**
+	 * Vortex Engine: the icon of an achievement. Editor-made ones use achievements/<icon or id>.png from their folder;
+	 * everything else uses Psych's images/achievements/<id>.png (and -pixel). Returns null if there's no picture.
+	 */
+	static var iconCache:Map<String, flixel.graphics.FlxGraphic> = new Map<String, flixel.graphics.FlxGraphic>();
+	public static function getIconFile(name:String):String
+	{
+		var achieve:Achievement = achievements.get(name);
+		if(achieve == null || achieve.folder == null) return null;
+		var file:String = achieve.folder + ((achieve.icon != null) ? achieve.icon : name + '.png');
+		if(!file.toLowerCase().endsWith('.png')) file += '.png';
+		return FileSystem.exists(file) ? file : null;
+	}
+
+	public static function getIcon(name:String):flixel.graphics.FlxGraphic
+	{
+		var file:String = getIconFile(name);
+		if(file == null) return null;
+		var graphic = iconCache.get(file);
+		if(graphic != null && graphic.bitmap != null) return graphic;
+		try
+		{
+			graphic = flixel.graphics.FlxGraphic.fromBitmapData(openfl.display.BitmapData.fromFile(file), false, file);
+			graphic.persist = true;
+			graphic.destroyOnNoUse = false;
+			iconCache.set(file, graphic);
+			return graphic;
+		}
+		catch(e:Dynamic) { psychlua.ScriptLog.error('Achievements: $file', 'Could not load the icon: $e'); }
+		return null;
+	}
+
+	/** Vortex Engine: forget a cached icon (the Achievement Editor calls this after the file changes). **/
+	public static function clearIconCache()
+	{
+		for (g in iconCache) { g.persist = false; g.destroyOnNoUse = true; }
+		iconCache.clear();
+	}
+
+	/** Vortex Engine: the attached script of an achievement (achievements/<script or id>.lua / .hx), or null. **/
+	public static function getScriptFile(name:String):String
+	{
+		var achieve:Achievement = achievements.get(name);
+		if(achieve == null || achieve.folder == null) return null;
+		if(achieve.script != null)
+		{
+			var file:String = achieve.folder + achieve.script;
+			return FileSystem.exists(file) ? file : null;
+		}
+		for (ext in ['.lua', '.hx'])
+			if(FileSystem.exists(achieve.folder + name + ext)) return achieve.folder + name + ext;
+		return null;
+	}
+
+	/** Vortex Engine: relock an achievement and clear its progress (Achievement Editor "Reset progress"). **/
+	public static function reset(name:String)
+	{
+		achievementsUnlocked.remove(name);
+		variables.remove(name);
+		save();
+		FlxG.save.flush();
+	}
+
+	/**
+	 * Vortex Engine: called by PlayState when a song is finished. Unlocks (or adds progress to) every editor-made
+	 * achievement whose "unlock" condition was met. `info` comes from PlayState.endSong.
+	 */
+	public static function checkSongEnd(info:{song:String, week:String, storyMode:Bool, lastSongOfWeek:Bool, misses:Int,
+		weekMisses:Int, accuracy:Float, score:Int, weekScore:Int, practice:Bool}):Array<String>
+	{
+		var done:Array<String> = [];
+		for (name => achieve in achievements)
+		{
+			var u:AchievementUnlock = achieve.unlock;
+			if(u == null || u.type == null || isUnlocked(name)) continue;
+			var type:String = u.type.toLowerCase();
+			if(type != 'song_complete' && type != 'week_complete') continue;
+			if(info.practice && u.allowPractice != true) continue;
+
+			var misses:Int = info.misses;
+			var score:Int = info.score;
+			if(type == 'song_complete')
+			{
+				if(u.song != null && u.song.trim().length > 0 && Paths.formatToSongPath(u.song) != Paths.formatToSongPath(info.song)) continue;
+			}
+			else
+			{
+				if(!info.storyMode || !info.lastSongOfWeek) continue;
+				if(u.week == null || u.week.trim() != info.week) continue;
+				misses = info.weekMisses;
+				score = info.weekScore;
+			}
+			if(u.maxMisses != null && u.maxMisses >= 0 && misses > u.maxMisses) continue;
+			if(u.minAccuracy != null && u.minAccuracy > 0 && info.accuracy < u.minAccuracy) continue;
+			if(u.minScore != null && u.minScore > 0 && score < u.minScore) continue;
+
+			if(achieve.maxScore != null && achieve.maxScore > 0) addScore(name, 1);
+			else unlock(name);
+			done.push(name);
+		}
+		return done;
+	}
+
+	#if MODS_ALLOWED
 
 	inline static function loadAchievementJson(path:String, addMods:Bool = true)
 	{
@@ -331,6 +516,18 @@ class Achievements {
 			return isUnlocked(name);
 		});
 		Lua_helper.add_callback(lua, "achievementExists", function(name:String) return achievements.exists(name));
+		// Vortex Engine: everything about one achievement in a table, or nil
+		Lua_helper.add_callback(lua, "getAchievementInfo", function(name:String):Dynamic
+		{
+			var a:Achievement = achievements.get(name);
+			if(a == null) return null;
+			var score:Float = (a.maxScore != null && a.maxScore > 0) ? (isUnlocked(name) ? a.maxScore : (variables.exists(name) ? variables.get(name) : 0)) : 0;
+			return {
+				id: name, name: a.name, description: a.description, hidden: a.hidden == true, unlocked: isUnlocked(name),
+				score: score, maxScore: (a.maxScore != null ? a.maxScore : 0), mod: a.mod,
+				unlockType: (a.unlock != null && a.unlock.type != null) ? a.unlock.type : 'manual'
+			};
+		});
 	}
 	#end
 }

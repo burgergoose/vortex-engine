@@ -1,0 +1,13 @@
+{
+	"name": "First Steps",
+	"description": "Finish the Example Song.",
+	"hidden": false,
+	"unlock": {
+		"type": "song_complete",
+		"song": "example-song",
+		"maxMisses": -1,
+		"minAccuracy": 0,
+		"minScore": 0,
+		"allowPractice": false
+	}
+}

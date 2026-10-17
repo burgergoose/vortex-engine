@@ -60,7 +60,9 @@ class AchievementsMenuState extends MusicBeatState
 			{
 				#if MODS_ALLOWED Mods.currentModDirectory = option.mod; #end
 				var image:String = 'achievements/' + option.name;
-				if(Paths.fileExists('images/$image-pixel.png', IMAGE))
+				graphic = Achievements.getIcon(option.name); // Vortex Engine: icon from the mod's achievements/ folder
+				if(graphic != null) {}
+				else if(Paths.fileExists('images/$image-pixel.png', IMAGE))
 				{
 					graphic = Paths.image('$image-pixel');
 					hasAntialias = false;

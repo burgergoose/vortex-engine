@@ -1,27 +1,27 @@
-# Vortex Engine self-test
+# Vortex Engine in-game tests
 
-`VortexSelfTest/` is a test mod that drives the real game and checks the scripting features end to end:
-custom states, `states/Global.lua`, `require()` from `lib/`, global variables, mod key binds (`data/keybinds.json`),
-script-to-script calls in menus, custom substates in menus, scripted classes receiving callbacks, the script error log
-(one intentional error), and in a song: `spawnNote` (normal, hold, opponent, custom note type), note type script
-loading, botplay hitting the spawned notes, and a real key press reaching a mod key bind.
+Three test mods drive the real game and write `PASS` / `FAIL` lines to a text file next to the exe.
+None of them ship with the game (only `example_mods/` is copied into builds). Run them one at a time:
+put only the one you're running in `export/release/windows/bin/mods/` (next to the bundled `Vortex-Example-Mod`,
+which they all use), start the game, don't touch the window, and it closes itself when done.
 
-It is **not** shipped with the game (only `example_mods/` is copied into builds).
+| Test mod | Checks | Results file |
+|---|---|---|
+| `VortexSelfTest` | scripting API: custom states, `Global.lua`, `require`, global vars, mod key binds, script calls in menus, substates, scripted classes, error log, `spawnNote`, real key presses (32 checks) | `vortex_selftest.txt` |
+| `VortexVocalsTest` | pause / resume vocals: 5 songs with different vocal setups, 4 pauses each (one rapid double pause) + Skip Time; every track must play when it should and stay within 80 ms of the instrumental (50 checks) | `vortex_audiotest.txt` |
+| `VortexAchievementTest` | achievements: loading from `achievements/`, icons, scripts, unlock rules, progress goals, saving, the Achievement Editor (save / validate / load / create script) and a real song end in practice mode (34 checks) | `vortex_achtest.txt` |
 
-## Running it
+## Running
 
 1. Build: `lime build windows -release`
-2. Copy `tests/VortexSelfTest` into `export/release/windows/bin/mods/` (the bundled `Vortex-Example-Mod` must be
-   there too: the test plays its `example-song`).
-3. In PowerShell, start the key sender, then the game:
+2. `VortexVocalsTest` needs its songs generated first: `python tests/make_vocals_test.py` (copies and cuts the example
+   song's audio; the generated `data/` and `songs/` are git-ignored).
+3. Copy the test mod folder into `export/release/windows/bin/mods/` and start `export/release/windows/bin/VortexEngine.exe`.
+   For `VortexSelfTest`, start the key sender first so the "real key presses" check can pass:
    ```
    Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File tests\send-keys.ps1'
-   export\release\windows\bin\VortexEngine.exe
    ```
-   The game opens a test screen, plays about 10 seconds of the example song in botplay and closes itself.
-   Don't touch the window while it runs.
-4. Read `export/release/windows/bin/vortex_selftest.txt`: every line should be `PASS`, ending with `DONE`.
-   `vortex_script_log.txt` should contain exactly one error (the intentional one in `SelfTestMenu.lua`).
-5. Delete `mods/VortexSelfTest`, `vortex_selftest*.txt` and `vortex_script_log.txt` before packaging a release.
-
-Without `send-keys.ps1` everything passes except the "real key presses" line.
+4. Read the results file: every line `PASS`, ending with `DONE`. `VortexSelfTest` also leaves exactly one error in
+   `vortex_script_log.txt` (an intentional one in `SelfTestMenu.lua`); the other two leave none.
+5. `VortexAchievementTest` unlocks test achievements in your save and re-locks them at the end.
+6. Delete the test mod, the results files and `vortex_script_log.txt` before packaging a release.

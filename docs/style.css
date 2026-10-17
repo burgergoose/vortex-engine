@@ -184,7 +184,7 @@ table {
 th, td { text-align: left; padding: 10px 14px; vertical-align: top; border-bottom: 1px solid var(--line); }
 th { background: var(--panel-2); color: var(--text-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
 tr:last-child td { border-bottom: 0; }
-td:first-child { white-space: nowrap; }
+td:first-child code { white-space: normal; box-decoration-break: clone; -webkit-box-decoration-break: clone; } /* long signatures wrap at their spaces instead of widening the page */
 td code { font-size: 12.5px; }
 tbody tr:nth-child(even) td { background: rgba(19, 15, 41, 0.45); }
 
@@ -234,4 +234,6 @@ footer { color: var(--text-faint); font-size: 13.5px; border-top: 1px solid var(
   .hero h1 { font-size: 32px; }
   .grid-2 { grid-template-columns: 1fr; }
   td:first-child { white-space: normal; }
+  /* wide tables scroll inside themselves on phones instead of making the whole page scroll sideways */
+  table { display: block; overflow-x: auto; }
 }

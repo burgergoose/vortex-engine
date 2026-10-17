@@ -1,6 +1,6 @@
 {
 	"engineName": "Vortex Engine",
-	"engineVersion": "0.1.0",
+	"engineVersion": "0.3.0",
 
 	"_comment_discordAppId": "Create your own app at https://discord.com/developers/applications, copy its Application ID below. Leave as \"0\" to keep Discord RPC off regardless of the Settings toggle.",
 	"discordAppId": "0",

@@ -32,12 +32,13 @@ class MenuButton extends FlxSpriteGroup
 	var number:FlxText;
 	var arrow:FlxText;
 
-	public function new(optionName:String, labelText:String, indexText:String, accentColor:Int, small:Bool = false)
+	// Vortex Engine: `width` overrides the default button width (the Developer menu uses wider small buttons)
+	public function new(optionName:String, labelText:String, indexText:String, accentColor:Int, small:Bool = false, ?width:Int)
 	{
 		super();
 		this.optionName = optionName;
 		this.accentColor = accentColor;
-		w = small ? 300 : 470;
+		w = (width != null) ? width : (small ? 300 : 470);
 		h = small ? 54 : 76;
 
 		for (i in 0...3)
@@ -66,6 +67,8 @@ class MenuButton extends FlxSpriteGroup
 		var size:Int = small ? 22 : 34;
 		label = new FlxText(small ? 24 : 34, 0, w - 90, labelText.toUpperCase(), size);
 		label.setFormat(Paths.font('vcr.ttf'), size, CosmicBackground.TEXT_DIM, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		// Vortex Engine: long labels shrink to stay on one line instead of wrapping out of the button
+		while (label.textField.numLines > 1 && label.size > 12) label.size -= 1;
 		label.y = (h - label.height) / 2;
 		add(label);
 

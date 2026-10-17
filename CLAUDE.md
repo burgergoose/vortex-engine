@@ -51,13 +51,19 @@ changing anything.
 | Script errors | `psychlua/ScriptLog.hx` → `vortex_script_log.txt` (once per unique error, Lua traceback via `FunkinLua.pushTraceback`), shown on screen once; HScript errors via `Main.hx` Iris handlers; count in the F3 overlay |
 | Mod key binds | `backend/ModKeybinds.hx` (`data/keybinds.json` in any enabled mod), "MOD CONTROLS" in `ControlsSubState`; `keyJustPressed` etc. use `Controls.instance` so they work in menus |
 | Runtime notes | `PlayState.addNoteAtRuntime` / `ensureNoteTypeScript` (spawnNote; loads the note type script on first use) |
+| Achievements (0.3) | `backend/Achievements.hx` (`loadAchievementFolder`: `mods/<mod>/achievements/<id>.json` + `<id>.png` + optional `<id>.lua/.hx`; `checkSongEnd` unlock rules song_complete / week_complete / manual, progress via maxScore; `getIcon`, `reset`; Psych `data/achievements.json` unchanged), `PlayState.startAchievementScripts` (scripts run while locked, `achievementId` preset via `FunkinLua(file, true, presetVars)`), `states/editors/AchievementEditorState.hx`; examples in `example_mods/Vortex-Example-Mod/achievements/` and `modTemplate.zip` |
+| Developer menu (0.3) | `states/editors/MasterEditorMenu.hx` cosmic remaster (same tools/order/keys + mouse, Achievement Editor last); `MenuButton` optional width + label auto-shrink |
+| Vocals sync (0.3) | `PlayState.syncVocalTrack` (each track vs its own length; used by `resyncVocals` + `setSongTime`), `keepVocalTrack` (empty FlxSounds were recycled by `FlxG.sound.play`), `fixVocalDrift` in `stepHit` (only nudges PLAYING tracks >40 ms off) |
 | Performance / stability | `generateSong` ghost-note check hashed (was O(n²); `chartBuildMs` shown in F3), note loop `null` slot no longer loops forever, `LoadingState` race fixes (unlocked `loaded++` / `threadsCompleted++` caused the random "stuck on Now Loading", shared lists locked, thread pool reused instead of leaked) |
 
 Psych already has Lua functions named `createInstance` and `callMethod` (Haxe reflection) — never reuse those names.
 
 ## Testing notes
-- `tests/VortexSelfTest` + `tests/README.md`: automated in-game test of the scripting features (32 checks, writes
-  `vortex_selftest.txt`). Run it after scripting changes. Remove it from `export/.../mods` before packaging.
+- `tests/` + `tests/README.md`: in-game test mods. `VortexSelfTest` (scripting, 32 checks), `VortexVocalsTest` (pause/resume
+  vocals, 50 checks; generate its songs with `python tests/make_vocals_test.py`), `VortexAchievementTest` (achievements +
+  editor, 34 checks). Run ONE at a time (each takes over startup) and remove it from `export/.../mods` afterwards.
+- HScript test gotchas: functions called from `FlxG.signals` get a copy of top-level vars (keep state in an object),
+  optional params need `?`, `haxe.Json` isn't resolvable (use `tjson.TJSON`), import `sys.io.File` explicitly.
 - There's a bundled example mod at `example_mods/Vortex-Example-Mod` (week, song with split vocals, character,
   stage, custom event) — good for quick checks.
 - Earlier sessions couldn't test: the buddies singing to notes while a song plays, clicking through the chart editor's
@@ -66,4 +72,5 @@ Psych already has Lua functions named `createInstance` and `callMethod` (Haxe re
 ## Open items / ideas
 - Owner's own mod hasn't been tested directly; if a crash happens, ask for the newest file in `crash/`.
 - Mods menu (`states/ModsMenuState.hx`) still has the stock Psych look.
+- Engine version is 0.3.0 (`VortexConfig.hx`, `assets/shared/data/vortexConfig.json`, `Project.xml`).
 - Docs site needs GitHub Pages switched on once (see above).

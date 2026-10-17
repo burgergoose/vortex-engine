@@ -31,7 +31,7 @@ class VortexConfig
 {
 	// ---- Defaults. Only used if vortexConfig.json is missing/broken. ----
 	public static var engineName(default, null):String = "Vortex Engine";
-	public static var engineVersion(default, null):String = "0.1.0";
+	public static var engineVersion(default, null):String = "0.3.0";
 
 	/**
 	 * Your own Discord Application ID from https://discord.com/developers/applications

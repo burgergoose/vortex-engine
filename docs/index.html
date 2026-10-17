@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vortex Engine Modding Docs</title>
-<meta name="description" content="How to mod Vortex Engine: Lua and HScript, custom states, scripted classes, state scripts, shared modules, mod key binds, script-made notes and custom events.">
+<meta name="description" content="How to mod Vortex Engine: the Achievement Editor, Lua and HScript, custom states, scripted classes, state scripts, shared modules, mod key binds, script-made notes and custom events.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -42,6 +42,13 @@
       <a href="#hscript">HScript (.hx)</a>
     </div>
     <div class="nav-group">
+      <div class="nav-title">Achievements</div>
+      <a href="#achievements">Achievement Editor</a>
+      <a href="#achievement-files">Achievement files</a>
+      <a href="#achievement-scripts">Achievement scripts</a>
+      <a href="#achievement-example">Working example</a>
+    </div>
+    <div class="nav-group">
       <div class="nav-title">Songs</div>
       <a href="#spawn-note">Notes from scripts</a>
       <a href="#keybinds">Mod key binds</a>
@@ -66,6 +73,7 @@
     <h1>Vortex Engine modding</h1>
     <p>Vortex Engine is built on Psych Engine 1.0, so <strong>Psych Lua and HScript mods keep working</strong>. On top of that it adds custom screens, reusable scripted objects and scripts for the built-in menus, so you can build bigger mods without touching the engine's Haxe source.</p>
     <div class="chips">
+      <span class="chip new">Achievement Editor</span>
       <span class="chip new">Custom states</span>
       <span class="chip new">Scripted classes</span>
       <span class="chip new">State scripts</span>
@@ -79,6 +87,7 @@
       <span class="chip">Psych 1.0 compatible</span>
     </div>
   </div>
+  <div class="callout tip"><strong>New in 0.3:</strong> the <a href="#achievements">Achievement Editor</a> and an <code>achievements/</code> folder for mods, a remastered Developer menu (press <strong>7</strong> on the main menu), and a fix for vocals going silent after pausing some songs (see <a href="#troubleshooting">Troubleshooting</a>).</div>
   <p>Everything on this page is implemented in the engine as it ships. Anything marked <span class="tag psych">Psych</span> works the same way as in Psych Engine, and the <a href="https://github.com/ShadowMario/FNF-PsychEngine/wiki">Psych Engine wiki</a> has the full list of its standard Lua functions. Anything marked <span class="tag vortex">Vortex</span> is new in Vortex Engine and documented in full here.</p>
 </section>
 
@@ -99,6 +108,7 @@
    ├─ <b>states/</b>                  <i>Vortex: custom states + menu scripts (+ Global.lua)</i>
    ├─ <b>classes/</b>                 <i>Vortex: scripted classes</i>
    ├─ <b>lib/</b>                     <i>Vortex: shared Lua modules for require()</i>
+   ├─ <b>achievements/</b>            <i>Vortex: &lt;id&gt;.json + .png icon + optional .lua script</i>
    └─ data/<b>keybinds.json</b>         <i>Vortex: your mod's own rebindable keys</i></div>
   <ul>
     <li>Mods are switched on and off in the <strong>Mods</strong> menu. A new folder is switched on automatically.</li>
@@ -125,6 +135,7 @@
       <tr><td><code>classes/&lt;Class&gt;.lua</code></td><td>When you create an object from it with <code>createScripted</code></td><td><span class="tag vortex">Vortex</span></td></tr>
       <tr><td><code>states/Global.lua</code></td><td>In <em>every</em> menu and custom state, before that state's own script</td><td><span class="tag vortex">Vortex</span></td></tr>
       <tr><td><code>lib/&lt;name&gt;.lua</code></td><td>Never by itself: other scripts load it with <code>require('name')</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>achievements/&lt;id&gt;.lua</code></td><td>In every song, while that achievement is still locked</td><td><span class="tag vortex">Vortex</span></td></tr>
     </tbody>
   </table>
   <div class="callout tip"><strong>Which mod's files are used?</strong> In songs, it's the mod the song belongs to, plus any mods with <code>"runsGlobally": true</code> in their <code>pack.json</code>. For <code>states/</code> and <code>classes/</code>, Vortex looks in <em>every enabled mod</em> (the current one first). That's because in menus only the top mod is "current".</div>
@@ -393,6 +404,132 @@ var args = getStateArgs();</code></pre>
 </section>
 
 <!-- ============================================================ -->
+<section id="achievements">
+  <h2>Achievement Editor <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Make achievements for your mod without writing JSON by hand: a name, a description, an icon, an ID, when it unlocks, and an optional Lua script. They show up in the game's Achievements menu and pop up when unlocked, like the built-in ones, and progress is saved.</p>
+  <ol>
+    <li>On the main menu press <strong>7</strong> to open the <strong>Developer</strong> menu.</li>
+    <li>Pick your mod with <strong>Left / Right</strong> (the bar at the bottom shows the loaded mod folder).</li>
+    <li>Choose <strong>Achievement Editor</strong> (the last entry) with Enter or the mouse.</li>
+  </ol>
+  <p>The editor saves into <code>mods/&lt;your mod&gt;/achievements/</code>, or <code>mods/achievements/</code> with no mod selected. The left side shows a live preview card (icon, name, description, locked / unlocked, progress) and every achievement in that folder. The right side has three tabs:</p>
+  <table>
+    <thead><tr><th>Tab</th><th>Fields</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Achievement</strong></td><td><em>Load from this folder</em>; <em>ID</em> (also the file name: lowercase letters, numbers, <code>-</code> and <code>_</code>; the editor refuses an ID another mod already uses); <em>Name</em>; <em>Description</em>; <em>Icon file</em> (a PNG in the same folder, empty = <code>&lt;id&gt;.png</code>); <em>Hidden until unlocked</em>; <em>Progress goal</em> (0 = none, e.g. 5 = "finish 5 songs"). Buttons: <strong>New</strong>, <strong>Save</strong>, <strong>Test Popup</strong>, <strong>Reset Progress</strong> (relocks it in your own save, for testing).</td></tr>
+      <tr><td><strong>Unlock</strong></td><td><em>Unlock when</em>: <code>manual</code>, <code>song_complete</code> or <code>week_complete</code>; <em>Song</em>; <em>Week file</em>; <em>Max misses</em> (-1 = any); <em>Min accuracy %</em>; <em>Min score</em>; <em>Practice Mode counts too</em>.</td></tr>
+      <tr><td><strong>Script</strong></td><td>Shows whether the achievement has a script and the functions it can use. <strong>Create Lua script</strong> / <strong>Create HScript</strong> write a working example you can edit.</td></tr>
+    </tbody>
+  </table>
+  <h3>When achievements unlock</h3>
+  <table>
+    <thead><tr><th>Unlock type</th><th>Unlocks when</th></tr></thead>
+    <tbody>
+      <tr><td><code>manual</code></td><td>Only a script unlocks it: <code>unlockAchievement(id)</code> (or <code>addAchievementScore</code> with a progress goal).</td></tr>
+      <tr><td><code>song_complete</code></td><td>A song is finished. <code>song</code> empty = any song; names are matched like song folders, so <code>Example Song</code> and <code>example-song</code> are the same.</td></tr>
+      <tr><td><code>week_complete</code></td><td>The last song of the week <code>week</code> (its week file name) is finished in Story Mode. <em>Max misses</em> and <em>Min score</em> count the whole week.</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>Conditions are checked when a song ends. <strong>Botplay and the Chart Editor never unlock achievements</strong>, and Practice Mode only counts with <em>Practice Mode counts too</em> on.</li>
+    <li>With a <em>Progress goal</em>, every finish that meets the conditions adds 1, and the achievement unlocks at the goal. The Achievements menu shows the progress.</li>
+    <li>Unlocks and progress are saved in the player's save file straight away, under the achievement's ID.</li>
+    <li>Psych Engine's way still works unchanged: <code>data/achievements.json</code> with icons in <code>images/achievements/&lt;save&gt;.png</code>.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="achievement-files">
+  <h2>Achievement files <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">The editor writes plain files, so you can also make or edit them by hand. Each achievement is up to three files with the same name, its ID:</p>
+<div class="tree"><b>mods/My-Mod/achievements/</b>
+├─ first-steps.json      <i>name, description, unlock condition</i>
+├─ first-steps.png       <i>icon (optional; 150&times;150 looks best)</i>
+├─ combo-starter.json
+├─ combo-starter.png
+└─ combo-starter.lua     <i>script, optional (or .hx)</i></div>
+<pre data-file="mods/My-Mod/achievements/first-steps.json"><code>{
+	"name": "First Steps",
+	"description": "Finish the Example Song.",
+	"hidden": false,
+	"unlock": {
+		"type": "song_complete",
+		"song": "example-song",
+		"maxMisses": -1,
+		"minAccuracy": 0,
+		"minScore": 0,
+		"allowPractice": false
+	}
+}</code></pre>
+  <table>
+    <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>name</code>, <code>description</code></td><td>Shown in the popup and the Achievements menu.</td></tr>
+      <tr><td><code>hidden</code></td><td><code>true</code> hides it in the menu until it's unlocked.</td></tr>
+      <tr><td><code>icon</code></td><td>Optional PNG file name in this folder. Without it, <code>&lt;id&gt;.png</code> is used, then Psych's <code>images/achievements/&lt;id&gt;.png</code>.</td></tr>
+      <tr><td><code>maxScore</code></td><td>Optional progress goal (whole numbers). Leave it out or use 0 for a normal achievement.</td></tr>
+      <tr><td><code>unlock</code></td><td><code>type</code> (<code>manual</code> / <code>song_complete</code> / <code>week_complete</code>), <code>song</code>, <code>week</code>, <code>maxMisses</code>, <code>minAccuracy</code>, <code>minScore</code>, <code>allowPractice</code>. Missing = <code>manual</code>.</td></tr>
+      <tr><td><code>script</code></td><td>Optional script file name in this folder. Without it, <code>&lt;id&gt;.lua</code> or <code>&lt;id&gt;.hx</code> is used if it exists.</td></tr>
+    </tbody>
+  </table>
+  <p>Achievements from every enabled mod are loaded. If two use the same ID, the first one is kept and the other is reported in <code>vortex_script_log.txt</code>.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="achievement-scripts">
+  <h2>Achievement scripts <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">For conditions the Unlock tab can't express (a combo, a secret, a mechanic), attach a script. <code>achievements/&lt;id&gt;.lua</code> runs in <strong>every song while the achievement is still locked</strong>, and it doesn't load at all once it's unlocked. It can use every normal song callback and function, plus the variable <code>achievementId</code>.</p>
+<pre data-file="mods/My-Mod/achievements/combo-starter.lua"><code>-- Attached to the achievement "combo-starter" (same file name as combo-starter.json).
+-- It runs in every song while the achievement is still locked; achievementId is "combo-starter".
+
+function goodNoteHit(id, direction, noteType, isSustain)
+    if botPlay then return end -- botplay shouldn't earn achievements
+    if getProperty('combo') >= 20 then
+        unlockAchievement(achievementId)
+    end
+end</code></pre>
+  <h3>Lua functions</h3>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>unlockAchievement(id)</code></td><td>id</td><td>Unlocks it, shows the popup and saves. <span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>isAchievementUnlocked(id)</code></td><td>bool</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>achievementExists(id)</code></td><td>bool</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>getAchievementScore(id)</code> / <code>setAchievementScore(id, value)</code> / <code>addAchievementScore(id, value)</code></td><td>number</td><td>Progress of an achievement with a progress goal; reaching the goal unlocks it. <span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>getAchievementInfo(id)</code></td><td>table</td><td><span class="tag vortex">Vortex</span> <code>id</code>, <code>name</code>, <code>description</code>, <code>hidden</code>, <code>unlocked</code>, <code>score</code>, <code>maxScore</code>, <code>mod</code>, <code>unlockType</code>, or <code>nil</code> if there's no such achievement.</td></tr>
+    </tbody>
+  </table>
+  <p>These work in any script, not only achievement scripts. In HScript (<code>&lt;id&gt;.hx</code>) use <code>Achievements.unlock(achievementId)</code> after <code>import backend.Achievements;</code>. The editor's <strong>Create HScript</strong> button writes an example.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="achievement-example">
+  <h2>Working example <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">The bundled <code>Vortex-Example-Mod</code> has three achievements in <code>mods/Vortex-Example-Mod/achievements/</code>, one of each kind. Open them in the Achievement Editor to see how they're set up.</p>
+  <div class="grid-2">
+    <div class="card"><h4>First Steps</h4><p><code>song_complete</code> for <code>example-song</code>. Play the Example Song to the end without botplay.</p></div>
+    <div class="card"><h4>Combo Starter</h4><p><code>manual</code> + <code>combo-starter.lua</code> (above): unlocks at a 20 combo.</p></div>
+    <div class="card"><h4>Song Collector</h4><p><code>song_complete</code> for any song with a progress goal of 3 (<code>"maxScore": 3</code>).</p></div>
+    <div class="card"><h4>Mod template</h4><p><code>mods/modTemplate.zip</code> has an <code>achievements/</code> folder with a readme and two examples to copy.</p></div>
+  </div>
+<pre data-file="mods/Vortex-Example-Mod/achievements/song-collector.json"><code>{
+	"name": "Song Collector",
+	"description": "Finish 3 songs (any songs).",
+	"hidden": false,
+	"maxScore": 3,
+	"maxDecimals": 0,
+	"unlock": {
+		"type": "song_complete",
+		"song": "",
+		"maxMisses": -1,
+		"minAccuracy": 0,
+		"minScore": 0,
+		"allowPractice": false
+	}
+}</code></pre>
+</section>
+
+<!-- ============================================================ -->
 <section id="spawn-note">
   <h2>Notes from scripts <span class="tag vortex">Vortex</span></h2>
   <p class="section-lead"><code>spawnNote</code> adds a note while the song is playing, for mechanics that aren't in the chart: random notes, patterns generated from code, notes made by an event. It's built exactly like a chart note, holds included.</p>
@@ -599,6 +736,8 @@ end</code></pre>
     <li><strong>"My event doesn't do anything."</strong> Check that the name in <code>if name == '...'</code> matches the file name exactly, spaces included. Check <code>vortex_script_log.txt</code> for script errors.</li>
     <li><strong>"My custom state isn't found."</strong> The file must be in <code>states/</code> inside an <em>enabled</em> mod, and <code>switchState</code> takes the file name without <code>.lua</code>.</li>
     <li><strong>"createScripted returns nil."</strong> The class file isn't in <code>classes/</code>, or its <code>new</code> function has an error. Check <code>vortex_script_log.txt</code>.</li>
+    <li><strong>"The vocals went silent after I paused the song."</strong> Fixed in 0.3. In Psych Engine 1.0, resuming checked both vocal tracks against the <em>player</em> track's length, so in songs with only opponent vocals, or a shorter player track, the opponent vocals stopped for the rest of the song. An empty vocal track could also be reused for menu sounds. Each track is now checked on its own, and a playing track that drifts more than 40 ms from the instrumental is moved back.</li>
+    <li><strong>"My achievement doesn't unlock."</strong> Botplay, the Chart Editor and (unless allowed) Practice Mode never unlock achievements. Check that the mod is enabled, the ID is unique, and look in <code>vortex_script_log.txt</code>. <strong>Reset Progress</strong> in the Achievement Editor relocks one to test it again.</li>
     <li><strong>"The game is stuck on the Now Loading screen."</strong> This was a threading bug in Psych Engine 1.0's loader: two files finishing at the same moment could lose count. It's fixed in Vortex. If it still happens, send the newest file in <code>crash/</code> and <code>vortex_script_log.txt</code>.</li>
     <li><strong>"require can't find my module."</strong> It must be in <code>lib/</code> of an enabled mod (or <code>mods/lib/</code>), and you pass the name without <code>.lua</code>: <code>require('mathutil')</code>.</li>
     <li><strong>"My song doesn't show up."</strong> Open <code>vortex_mods_log.txt</code>. It shows whether the mod is on and whether the chart and <code>Inst</code> were found.</li>

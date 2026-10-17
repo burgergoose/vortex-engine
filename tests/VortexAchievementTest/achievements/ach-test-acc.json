@@ -1,0 +1,1 @@
+{"name": "Test: accuracy", "description": "90% or better.", "unlock": {"type": "song_complete", "minAccuracy": 90}}

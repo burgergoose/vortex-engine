@@ -628,6 +628,10 @@ class PlayState extends MusicBeatState
 			}
 		#end
 
+		#if (ACHIEVEMENTS_ALLOWED && MODS_ALLOWED)
+		startAchievementScripts();
+		#end
+
 		if(eventNotes.length > 0)
 		{
 			for (event in eventNotes) event.strumTime -= eventEarlyTrigger(event);
@@ -1230,21 +1234,10 @@ class PlayState extends MusicBeatState
 		#if FLX_PITCH FlxG.sound.music.pitch = playbackRate; #end
 		FlxG.sound.music.play();
 
-		if (Conductor.songPosition < vocals.length)
-		{
-			vocals.time = time - Conductor.offset;
-			#if FLX_PITCH vocals.pitch = playbackRate; #end
-			vocals.play();
-		}
-		else vocals.pause();
-
-		if (Conductor.songPosition < opponentVocals.length)
-		{
-			opponentVocals.time = time - Conductor.offset;
-			#if FLX_PITCH opponentVocals.pitch = playbackRate; #end
-			opponentVocals.play();
-		}
-		else opponentVocals.pause();
+		// Vortex Engine: each track is checked against the time we're jumping TO and its own length
+		// (this compared the old song position, so Skip Time could leave vocals playing past their end or paused)
+		syncVocalTrack(vocals, time - Conductor.offset);
+		syncVocalTrack(opponentVocals, time - Conductor.offset);
 		Conductor.songPosition = time;
 	}
 
@@ -1336,6 +1329,8 @@ class PlayState extends MusicBeatState
 		vocals.pitch = playbackRate;
 		opponentVocals.pitch = playbackRate;
 		#end
+		keepVocalTrack(vocals); // Vortex Engine: see keepVocalTrack
+		keepVocalTrack(opponentVocals);
 		FlxG.sound.list.add(vocals);
 		FlxG.sound.list.add(opponentVocals);
 
@@ -1733,18 +1728,52 @@ class PlayState extends MusicBeatState
 		#if FLX_PITCH FlxG.sound.music.pitch = playbackRate; #end
 		Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
 
-		var checkVocals = [vocals, opponentVocals];
-		for (voc in checkVocals)
-		{
-			if (FlxG.sound.music.time < vocals.length)
-			{
-				voc.time = FlxG.sound.music.time;
-				#if FLX_PITCH voc.pitch = playbackRate; #end
-				voc.play();
-			}
-			else voc.pause();
-		}
+		syncVocalTrack(vocals, FlxG.sound.music.time);
+		syncVocalTrack(opponentVocals, FlxG.sound.music.time);
 	}
+
+	/**
+	 * Vortex Engine: puts one vocal track at `time` and plays it, or pauses it when `time` is past its end.
+	 * This used to check BOTH tracks against the player track's length (`vocals.length`): in songs where the
+	 * player track is missing or shorter than the opponent's, unpausing paused the opponent vocals and nothing
+	 * ever restarted them - the "vocals stay muted after pausing" bug. Tracks with no audio are left alone, and
+	 * play(false, time) is used because plain play() restarts a stopped (not paused) sound from 0.
+	 */
+	function syncVocalTrack(voc:FlxSound, time:Float)
+	{
+		if(voc == null || voc.length <= 0) return;
+		if(time >= 0 && time < voc.length)
+		{
+			voc.time = time;
+			#if FLX_PITCH voc.pitch = playbackRate; #end
+			voc.play(false, time);
+		}
+		else voc.pause();
+	}
+
+	/**
+	 * Vortex Engine: Psych 1.0 only lined the vocals up with the instrumental when unpausing, so a track that slipped
+	 * (lag spike, window drag, audio device hiccup) stayed out of sync. Each step, a vocal track that is PLAYING and more
+	 * than 40 ms off is moved back. Stopped / paused tracks are never restarted here, so scripts that stop vocals on
+	 * purpose keep working.
+	 */
+	function fixVocalDrift()
+	{
+		if(paused || startingSong || endingSong || finishTimer != null || FlxG.sound.music == null || !FlxG.sound.music.playing) return;
+		var musicTime:Float = FlxG.sound.music.time;
+		for (voc in [vocals, opponentVocals])
+			if(voc != null && voc.playing && voc.length > 0 && musicTime < voc.length - 100 && Math.abs(voc.time - musicTime) > 40 * playbackRate)
+			{
+				voc.time = musicTime;
+				#if FLX_PITCH voc.pitch = playbackRate; #end
+			}
+	}
+
+	// Vortex Engine: a brand-new FlxSound counts as "not existing" until a sound is loaded into it, so an empty vocal
+	// track (single Voices file, or no vocals) sitting in FlxG.sound.list got reused by the next FlxG.sound.play() -
+	// the pause menu's scroll sound, a miss sound... - and the song then paused/played/muted THAT sound as "vocals".
+	inline function keepVocalTrack(voc:FlxSound)
+		if(voc != null) voc.exists = true;
 
 	public var paused:Bool = false;
 	public var canReset:Bool = true;
@@ -2570,6 +2599,41 @@ class PlayState extends MusicBeatState
 		catch(e:Dynamic) { trace('Could not load event script for "$name": $e'); }
 	}
 
+	#if (ACHIEVEMENTS_ALLOWED && MODS_ALLOWED)
+	/**
+	 * Vortex Engine: an achievement's attached script (mods/<mod>/achievements/<id>.lua or .hx) runs in every song
+	 * while that achievement is still locked, with `achievementId` set to its id, so it can watch for its own
+	 * condition and call unlockAchievement(achievementId) / addAchievementScore(achievementId, 1).
+	 */
+	function startAchievementScripts()
+	{
+		if(!Achievements.listLoaded) Achievements.reloadList();
+		var ids:Array<String> = [for (id in Achievements.achievements.keys()) id];
+		ids.sort(function(a, b) return a < b ? -1 : (a > b ? 1 : 0));
+		for (id in ids)
+		{
+			if(Achievements.isUnlocked(id)) continue;
+			var file:String = Achievements.getScriptFile(id);
+			if(file == null) continue;
+			try
+			{
+				#if LUA_ALLOWED
+				if(file.toLowerCase().endsWith('.lua'))
+				{
+					var already:Bool = false;
+					for (script in luaArray) if(script.scriptName == file) already = true;
+					if(!already) new FunkinLua(file, true, ['achievementId' => id]);
+				}
+				#end
+				#if HSCRIPT_ALLOWED
+				if(file.toLowerCase().endsWith('.hx') && !Iris.instances.exists(file)) initHScript(file, {achievementId: id});
+				#end
+			}
+			catch(e:Dynamic) { psychlua.ScriptLog.error('Achievement script: $file', Std.string(e)); }
+		}
+	}
+	#end
+
 	// Vortex Engine: note type scripts (custom_notetypes/<type>.lua / .hx) used to load only for types placed in
 	// the chart. Notes added by scripts (spawnNote) load their type's script the first time it's needed.
 	var noteTypeScriptsChecked:Map<String, Bool> = new Map<String, Bool>();
@@ -2789,6 +2853,16 @@ class PlayState extends MusicBeatState
 		#if ACHIEVEMENTS_ALLOWED
 		var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';
 		checkForAchievement([weekNoMiss, 'ur_bad', 'ur_good', 'hype', 'two_keys', 'toastie' #if BASE_GAME_FILES, 'debugger' #end]);
+		// Vortex Engine: achievements made with the Achievement Editor (same rules as above: not in botplay / chart editor)
+		if(!chartingMode && !cpuControlled && !ClientPrefs.getGameplaySetting('botplay'))
+		{
+			var accuracy:Float = ratingPercent * 100;
+			if(Math.isNaN(accuracy)) accuracy = 0;
+			Achievements.checkSongEnd({song: Song.loadedSongName, week: WeekData.getWeekFileName(), storyMode: isStoryMode,
+				lastSongOfWeek: storyPlaylist.length <= 1, misses: songMisses, weekMisses: campaignMisses + songMisses,
+				accuracy: accuracy, score: songScore, weekScore: campaignScore + songScore,
+				practice: practiceMode || ClientPrefs.getGameplaySetting('practice')});
+		}
 		#end
 
 		var ret:Dynamic = callOnScripts('onEndSong', null, true);
@@ -3592,6 +3666,7 @@ class PlayState extends MusicBeatState
 		}
 
 		lastStepHit = curStep;
+		fixVocalDrift();
 		setOnScripts('curStep', curStep);
 		callOnScripts('onStepHit');
 	}
@@ -3715,12 +3790,12 @@ class PlayState extends MusicBeatState
 		return false;
 	}
 
-	public function initHScript(file:String)
+	public function initHScript(file:String, ?varsToBring:Any = null)
 	{
 		var newScript:HScript = null;
 		try
 		{
-			newScript = new HScript(null, file);
+			newScript = new HScript(null, file, varsToBring);
 			if (newScript.exists('onCreate')) newScript.call('onCreate');
 			trace('initialized hscript interp successfully: $file');
 			hscriptArray.push(newScript);

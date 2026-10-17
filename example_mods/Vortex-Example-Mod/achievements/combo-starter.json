@@ -1,0 +1,8 @@
+{
+	"name": "Combo Starter",
+	"description": "Hit 20 notes in a row.",
+	"hidden": false,
+	"unlock": {
+		"type": "manual"
+	}
+}

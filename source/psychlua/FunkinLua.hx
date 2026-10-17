@@ -60,7 +60,8 @@ class FunkinLua {
 	/** Vortex Engine: every running Lua script (songs, state scripts, custom states, scripted classes). **/
 	public static var activeScripts:Array<FunkinLua> = [];
 
-	public function new(scriptName:String, ?attachToGame:Bool = true) {
+	// Vortex Engine: presetVars are set before the file runs (e.g. achievementId for achievement scripts)
+	public function new(scriptName:String, ?attachToGame:Bool = true, ?presetVars:Map<String, Dynamic>) {
 		lua = LuaL.newstate();
 		LuaL.openlibs(lua);
 
@@ -1619,6 +1620,7 @@ class FunkinLua {
 
 		VortexFunctions.implement(this); // Vortex Engine: extra modding API (see VortexFunctions.hx)
 		setupRequirePaths();
+		if(presetVars != null) for (name => value in presetVars) set(name, value);
 
 		try{
 			var isString:Bool = !FileSystem.exists(scriptName);
