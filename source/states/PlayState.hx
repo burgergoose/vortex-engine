@@ -595,7 +595,10 @@ class PlayState extends MusicBeatState
 		for (notetype in noteTypes)
 			startLuasNamed('custom_notetypes/' + notetype + '.lua');
 		for (event in eventsPushed)
+		{
 			startLuasNamed('custom_events/' + event + '.lua');
+			eventScriptsChecked.set(event, true);
+		}
 		#end
 
 		#if HSCRIPT_ALLOWED
@@ -2506,7 +2509,24 @@ class PlayState extends MusicBeatState
 		}
 
 		stagesFunc(function(stage:BaseStage) stage.eventCalled(eventName, value1, value2, flValue1, flValue2, strumTime));
+		ensureEventScript(eventName);
 		callOnScripts('onEvent', [eventName, value1, value2, strumTime]);
+	}
+
+	// Vortex Engine: custom event scripts used to load ONLY for events placed in the chart. An event fired from
+	// Lua/HScript (triggerEvent), a stage or a song script never had its custom_events/<name>.lua loaded, so
+	// onEvent never reached it. Load it the first time the event is triggered.
+	var eventScriptsChecked:Map<String, Bool> = new Map<String, Bool>();
+	function ensureEventScript(name:String)
+	{
+		if(name == null || name.trim().length < 1 || eventScriptsChecked.exists(name)) return;
+		eventScriptsChecked.set(name, true);
+		try
+		{
+			#if LUA_ALLOWED startLuasNamed('custom_events/' + name + '.lua'); #end
+			#if HSCRIPT_ALLOWED startHScriptsNamed('custom_events/' + name + '.hx'); #end
+		}
+		catch(e:Dynamic) { trace('Could not load event script for "$name": $e'); }
 	}
 
 	public function moveCameraSection(?sec:Null<Int>):Void {

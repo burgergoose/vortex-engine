@@ -3067,11 +3067,21 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		if(eventDropDown != null)
 		{
 			eventsList = [];
-			var eventFiles:Array<String> = loadFileList('custom_events/', ['.txt']);
+			// Vortex Engine: list events that only have a .lua or .hx script too (no .txt description needed),
+			// otherwise they could never be picked here and looked like they "didn't register"
+			var eventExts:Array<String> = ['.txt'];
+			#if LUA_ALLOWED eventExts.push('.lua'); #end
+			#if HSCRIPT_ALLOWED eventExts.push('.hx'); #end
+			var eventFiles:Array<String> = loadFileList('custom_events/', eventExts);
 			for (file in eventFiles)
 			{
-				var desc:String = Paths.getTextFromFile('custom_events/$file.txt');
-				eventsList.push([file, desc]);
+				var desc:String = null;
+				if(Paths.fileExists('custom_events/$file.txt', TEXT))
+					try { desc = Paths.getTextFromFile('custom_events/$file.txt'); } catch(e:Dynamic) {}
+				if(desc == null || desc.trim().length < 1) desc = 'Custom event "$file"\n(add custom_events/$file.txt to write a description here)';
+				var dupe:Bool = false;
+				for (ev in eventsList) if(ev[0] == file) dupe = true;
+				if(!dupe) eventsList.push([file, desc]);
 			}
 
 			for (id => event in defaultEvents)
