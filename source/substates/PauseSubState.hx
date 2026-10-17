@@ -9,10 +9,12 @@ import flixel.util.FlxStringUtil;
 import states.StoryMenuState;
 import states.FreeplayState;
 import options.OptionsState;
+import objects.CosmicBackground;
+import objects.MenuButton;
 
 class PauseSubState extends MusicBeatSubstate
 {
-	var grpMenuShit:FlxTypedGroup<Alphabet>;
+	var grpMenuShit:FlxTypedGroup<MenuButton>; // Vortex Engine: cosmic panel buttons (was Alphabet)
 
 	var menuItems:Array<String> = [];
 	var menuItemsOG:Array<String> = ['Resume', 'Restart Song', 'Change Difficulty', 'Options', 'Exit to menu'];
@@ -22,7 +24,7 @@ class PauseSubState extends MusicBeatSubstate
 	var pauseMusic:FlxSound;
 	var practiceText:FlxText;
 	var skipTimeText:FlxText;
-	var skipTimeTracker:Alphabet;
+	var skipTimeTracker:MenuButton;
 	var curTime:Float = Math.max(0, Conductor.songPosition);
 
 	var missingTextBG:FlxSprite;
@@ -30,9 +32,23 @@ class PauseSubState extends MusicBeatSubstate
 
 	public static var songName:String = null;
 
+	var pauseStars:Array<FlxSprite> = [];
+	var starTime:Float = 0;
+	var listY:Float = 0; // smoothed scroll position of the button list
+
 	override function create()
 	{
-		if(Difficulty.list.length < 2) menuItemsOG.remove('Change Difficulty'); //No need to change difficulty if there is only one!
+		// No need to change difficulty if there is only one! Vortex Engine: count the charts that actually exist,
+		// not just the names in the difficulty list (Vortex songs normally only have a Normal chart)
+		var chartsFound:Int = 0;
+		try
+		{
+			var songLower:String = Paths.formatToSongPath(PlayState.SONG.song);
+			for (i in 0...Difficulty.list.length)
+				if(Paths.fileExists('data/$songLower/' + Highscore.formatSong(songLower, i) + '.json', TEXT)) chartsFound++;
+		}
+		catch(e:Dynamic) { chartsFound = Difficulty.list.length; }
+		if(Difficulty.list.length < 2 || chartsFound < 2) menuItemsOG.remove('Change Difficulty');
 		if(PlayState.chartingMode)
 		{
 			menuItemsOG.insert(2, 'Leave Charting Mode');
@@ -67,6 +83,7 @@ class PauseSubState extends MusicBeatSubstate
 
 		FlxG.sound.list.add(pauseMusic);
 
+		// ---- Vortex Engine: cosmic pause screen (visuals only; every option works exactly like before) ----
 		var bg:FlxSprite = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
 		bg.scale.set(FlxG.width, FlxG.height);
 		bg.updateHitbox();
@@ -74,27 +91,60 @@ class PauseSubState extends MusicBeatSubstate
 		bg.scrollFactor.set();
 		add(bg);
 
+		var panel:FlxSprite = new FlxSprite(0, 0).makeGraphic(610, FlxG.height, FlxColor.WHITE);
+		panel.color = CosmicBackground.PANEL_FILL;
+		panel.alpha = 0;
+		panel.scrollFactor.set();
+		add(panel);
+		var panelEdge:FlxSprite = new FlxSprite(608, 0).makeGraphic(2, FlxG.height, FlxColor.WHITE);
+		panelEdge.color = CosmicBackground.PANEL_BORDER_BRIGHT;
+		panelEdge.alpha = 0;
+		panelEdge.scrollFactor.set();
+		add(panelEdge);
+
+		for (i in 0...28)
+		{
+			var star:FlxSprite = new FlxSprite(FlxG.random.float(0, FlxG.width), FlxG.random.float(0, FlxG.height)).makeGraphic(2, 2, FlxColor.WHITE);
+			star.scrollFactor.set();
+			star.alpha = 0;
+			star.ID = i;
+			add(star);
+			pauseStars.push(star);
+		}
+
+		var title:FlxText = new FlxText(48, 34, 0, 'PAUSED', 56);
+		title.setFormat(Paths.font('vcr.ttf'), 56, CosmicBackground.ACCENT_CYAN, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF140C30);
+		title.borderSize = 3;
+		title.scrollFactor.set();
+		title.alpha = 0;
+		add(title);
+		var titleLine:FlxSprite = new FlxSprite(50, 100).makeGraphic(220, 3, FlxColor.WHITE);
+		titleLine.color = CosmicBackground.NEBULA_VIOLET;
+		titleLine.scrollFactor.set();
+		titleLine.scale.x = 0;
+		add(titleLine);
+
 		var levelInfo:FlxText = new FlxText(20, 15, 0, PlayState.SONG.song, 32);
 		levelInfo.scrollFactor.set();
-		levelInfo.setFormat(Paths.font("vcr.ttf"), 32);
+		levelInfo.setFormat(Paths.font("vcr.ttf"), 32, CosmicBackground.TEXT_BRIGHT, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		levelInfo.updateHitbox();
 		add(levelInfo);
 
 		var levelDifficulty:FlxText = new FlxText(20, 15 + 32, 0, Difficulty.getString().toUpperCase(), 32);
 		levelDifficulty.scrollFactor.set();
-		levelDifficulty.setFormat(Paths.font('vcr.ttf'), 32);
+		levelDifficulty.setFormat(Paths.font('vcr.ttf'), 24, CosmicBackground.ACCENT_CYAN, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		levelDifficulty.updateHitbox();
 		add(levelDifficulty);
 
 		var blueballedTxt:FlxText = new FlxText(20, 15 + 64, 0, Language.getPhrase("blueballed", "Blueballed: {1}", [PlayState.deathCounter]), 32);
 		blueballedTxt.scrollFactor.set();
-		blueballedTxt.setFormat(Paths.font('vcr.ttf'), 32);
+		blueballedTxt.setFormat(Paths.font('vcr.ttf'), 24, CosmicBackground.TEXT_DIM, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		blueballedTxt.updateHitbox();
 		add(blueballedTxt);
 
 		practiceText = new FlxText(20, 15 + 101, 0, Language.getPhrase("Practice Mode").toUpperCase(), 32);
 		practiceText.scrollFactor.set();
-		practiceText.setFormat(Paths.font('vcr.ttf'), 32);
+		practiceText.setFormat(Paths.font('vcr.ttf'), 24, CosmicBackground.NEBULA_TEAL, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		practiceText.x = FlxG.width - (practiceText.width + 20);
 		practiceText.updateHitbox();
 		practiceText.visible = PlayState.instance.practiceMode;
@@ -102,12 +152,18 @@ class PauseSubState extends MusicBeatSubstate
 
 		var chartingText:FlxText = new FlxText(20, 15 + 101, 0, Language.getPhrase("Charting Mode").toUpperCase(), 32);
 		chartingText.scrollFactor.set();
-		chartingText.setFormat(Paths.font('vcr.ttf'), 32);
+		chartingText.setFormat(Paths.font('vcr.ttf'), 24, CosmicBackground.NEBULA_MAGENTA, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		chartingText.x = FlxG.width - (chartingText.width + 20);
 		chartingText.y = FlxG.height - (chartingText.height + 20);
 		chartingText.updateHitbox();
 		chartingText.visible = PlayState.chartingMode;
 		add(chartingText);
+
+		var hint:FlxText = new FlxText(50, FlxG.height - 40, 520, 'UP/DOWN  select    ACCEPT  confirm    BACK  resume', 14);
+		hint.setFormat(Paths.font('vcr.ttf'), 14, CosmicBackground.TEXT_DIM, LEFT);
+		hint.scrollFactor.set();
+		hint.alpha = 0;
+		add(hint);
 
 		blueballedTxt.alpha = 0;
 		levelDifficulty.alpha = 0;
@@ -117,12 +173,17 @@ class PauseSubState extends MusicBeatSubstate
 		levelDifficulty.x = FlxG.width - (levelDifficulty.width + 20);
 		blueballedTxt.x = FlxG.width - (blueballedTxt.width + 20);
 
-		FlxTween.tween(bg, {alpha: 0.6}, 0.4, {ease: FlxEase.quartInOut});
-		FlxTween.tween(levelInfo, {alpha: 1, y: 20}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.3});
-		FlxTween.tween(levelDifficulty, {alpha: 1, y: levelDifficulty.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
-		FlxTween.tween(blueballedTxt, {alpha: 1, y: blueballedTxt.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.7});
+		FlxTween.tween(bg, {alpha: 0.55}, 0.35, {ease: FlxEase.quartInOut});
+		FlxTween.tween(panel, {alpha: 0.72}, 0.35, {ease: FlxEase.quartOut});
+		FlxTween.tween(panelEdge, {alpha: 0.9}, 0.35, {ease: FlxEase.quartOut, startDelay: 0.1});
+		FlxTween.tween(title, {alpha: 1, y: 40}, 0.4, {ease: FlxEase.quartOut, startDelay: 0.05});
+		FlxTween.tween(titleLine.scale, {x: 1}, 0.45, {ease: FlxEase.quartOut, startDelay: 0.15});
+		FlxTween.tween(hint, {alpha: 0.8}, 0.4, {startDelay: 0.4});
+		FlxTween.tween(levelInfo, {alpha: 1, y: 20}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.2});
+		FlxTween.tween(levelDifficulty, {alpha: 1, y: levelDifficulty.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.3});
+		FlxTween.tween(blueballedTxt, {alpha: 1, y: blueballedTxt.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.4});
 
-		grpMenuShit = new FlxTypedGroup<Alphabet>();
+		grpMenuShit = new FlxTypedGroup<MenuButton>();
 		add(grpMenuShit);
 
 		missingTextBG = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
@@ -162,6 +223,7 @@ class PauseSubState extends MusicBeatSubstate
 			pauseMusic.volume += 0.01 * elapsed;
 
 		super.update(elapsed);
+		updateCosmicVisuals(elapsed);
 
 		if(controls.BACK)
 		{
@@ -372,16 +434,11 @@ class PauseSubState extends MusicBeatSubstate
 		curSelected = FlxMath.wrap(curSelected + change, 0, menuItems.length - 1);
 		for (num => item in grpMenuShit.members)
 		{
-			item.targetY = num - curSelected;
-			item.alpha = 0.6;
-			if (item.targetY == 0)
+			item.setSelected(num == curSelected);
+			if (num == curSelected && item == skipTimeTracker)
 			{
-				item.alpha = 1;
-				if(item == skipTimeTracker)
-				{
-					curTime = Math.max(0, Conductor.songPosition);
-					updateSkipTimeText();
-				}
+				curTime = Math.max(0, Conductor.songPosition);
+				updateSkipTimeText();
 			}
 		}
 		missingText.visible = false;
@@ -389,45 +446,84 @@ class PauseSubState extends MusicBeatSubstate
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 	}
 
+	static final PAUSE_ACCENTS:Array<Int> = [CosmicBackground.ACCENT_CYAN, CosmicBackground.NEBULA_VIOLET, CosmicBackground.NEBULA_MAGENTA, CosmicBackground.NEBULA_TEAL];
 	function regenMenu():Void {
 		for (i in 0...grpMenuShit.members.length)
 		{
-			var obj:Alphabet = grpMenuShit.members[0];
+			var obj:MenuButton = grpMenuShit.members[0];
 			obj.kill();
 			grpMenuShit.remove(obj, true);
 			obj.destroy();
 		}
+		deleteSkipTimeText();
 
 		for (num => str in menuItems) {
-			var item = new Alphabet(90, 320, Language.getPhrase('pause_$str', str), true);
-			item.isMenuItem = true;
-			item.targetY = num;
+			var accent:Int = PAUSE_ACCENTS[num % PAUSE_ACCENTS.length];
+			if(str == 'Exit to menu' || str == 'BACK') accent = 0xFFFF5C8A;
+			var item:MenuButton = new MenuButton(str, Language.getPhrase('pause_$str', str), (num + 1 < 10 ? '0' : '') + (num + 1), accent, false);
+			item.baseX = 50;
+			item.introDelay = 0.04 * num;
+			item.ID = num;
 			grpMenuShit.add(item);
 
 			if(str == 'Skip Time')
 			{
-				skipTimeText = new FlxText(0, 0, 0, '', 64);
-				skipTimeText.setFormat(Paths.font("vcr.ttf"), 64, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+				skipTimeText = new FlxText(0, 0, 0, '', 40);
+				skipTimeText.setFormat(Paths.font("vcr.ttf"), 40, CosmicBackground.ACCENT_CYAN, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 				skipTimeText.scrollFactor.set();
 				skipTimeText.borderSize = 2;
 				skipTimeTracker = item;
 				add(skipTimeText);
-
-				updateSkipTextStuff();
-				updateSkipTimeText();
 			}
 		}
 		curSelected = 0;
+		listY = targetListY();
+		placeButtons();
 		changeSelection();
+		if(skipTimeText != null) { updateSkipTextStuff(); updateSkipTimeText(); }
 	}
-	
+
+	inline function targetListY():Float
+	{
+		// keep the selected button around the middle of the screen, but don't scroll short lists
+		var spacing:Float = 88;
+		var total:Float = menuItems.length * spacing;
+		var top:Float = 150;
+		if(top + total <= FlxG.height - 60) return top;
+		return Math.max(FlxG.height - 60 - total, Math.min(top, FlxG.height * 0.45 - curSelected * spacing));
+	}
+
+	function placeButtons()
+	{
+		for (num => item in grpMenuShit.members)
+		{
+			if(item == null) continue;
+			item.y = listY + num * 88;
+			var dist:Float = Math.abs(num - curSelected);
+			item.alpha = (menuItems.length <= 6) ? 1 : Math.max(0.3, 1 - dist * 0.16);
+		}
+	}
+
+	function updateCosmicVisuals(elapsed:Float)
+	{
+		starTime += elapsed;
+		for (star in pauseStars)
+		{
+			star.alpha = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(starTime * 2.2 + star.ID * 1.7));
+			star.y -= elapsed * (6 + (star.ID % 5) * 3);
+			if(star.y < -4) { star.y = FlxG.height + 2; star.x = FlxG.random.float(0, FlxG.width); }
+		}
+		listY += (targetListY() - listY) * Math.min(1, elapsed * 12);
+		placeButtons();
+	}
+
 	function updateSkipTextStuff()
 	{
 		if(skipTimeText == null || skipTimeTracker == null) return;
 
-		skipTimeText.x = skipTimeTracker.x + skipTimeTracker.width + 60;
-		skipTimeText.y = skipTimeTracker.y;
-		skipTimeText.visible = (skipTimeTracker.alpha >= 1);
+		skipTimeText.x = skipTimeTracker.x + 500;
+		skipTimeText.y = skipTimeTracker.y + (76 - skipTimeText.height) / 2;
+		skipTimeText.visible = (grpMenuShit.members.indexOf(skipTimeTracker) == curSelected);
 	}
 
 	function updateSkipTimeText()
