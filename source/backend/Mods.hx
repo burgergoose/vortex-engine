@@ -28,7 +28,9 @@ class Mods
 		'weeks',
 		'fonts',
 		'scripts',
-		'achievements'
+		'achievements',
+		'states', // Vortex Engine: custom states / state scripts
+		'classes' // Vortex Engine: scripted classes
 	];
 
 	private static var globalMods:Array<String> = [];
@@ -129,6 +131,37 @@ class Mods
 		}
 		#end
 		return foldersToCheck;
+	}
+
+	/** Vortex Engine: every folder (current mod first, then global mods, the other enabled mods, then mods/ itself)
+		that has `fileToFind`, e.g. 'states/'. Used for state scripts, custom states and scripted classes,
+		which must be found from menus where only the top mod is "current". **/
+	public static function allModFoldersWith(fileToFind:String):Array<String>
+	{
+		var out:Array<String> = [];
+		#if MODS_ALLOWED
+		var order:Array<String> = [];
+		if(currentModDirectory != null && currentModDirectory.length > 0) order.push(currentModDirectory);
+		for (mod in getGlobalMods()) if(!order.contains(mod)) order.push(mod);
+		for (mod in parseList().enabled) if(!order.contains(mod)) order.push(mod);
+		for (mod in order)
+		{
+			var folder:String = Paths.mods(mod + '/' + fileToFind);
+			if(FileSystem.exists(folder) && !out.contains(folder)) out.push(folder);
+		}
+		var root:String = Paths.mods(fileToFind);
+		if(FileSystem.exists(root) && !out.contains(root)) out.push(root);
+		#end
+		var shared:String = Paths.getSharedPath(fileToFind);
+		#if sys if(FileSystem.exists(shared) && !out.contains(shared)) out.push(shared); #end
+		return out;
+	}
+
+	/** First existing file at `key` (e.g. 'classes/Star.lua') in the folders above, or null. **/
+	public static function findInAnyMod(key:String):String
+	{
+		for (path in allModFoldersWith(key)) return path;
+		return null;
 	}
 
 	public static function getPack(?folder:String = null):Dynamic

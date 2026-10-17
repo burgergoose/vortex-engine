@@ -20,7 +20,7 @@ class CallbackHandler
 				if(last == null || last.lua != l)
 				{
 					//trace('looping thru scripts');
-					for (script in PlayState.instance.luaArray)
+					for (script in FunkinLua.activeScripts) // Vortex Engine: was PlayState.instance.luaArray (songs only)
 						if(script != FunkinLua.lastCalledScript && script != null && script.lua == l)
 						{
 							//trace('found script');

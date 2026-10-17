@@ -57,7 +57,10 @@ class FunkinLua {
 	public var callbacks:Map<String, Dynamic> = new Map<String, Dynamic>();
 	public static var customFunctions:Map<String, Dynamic> = new Map<String, Dynamic>();
 
-	public function new(scriptName:String) {
+	/** Vortex Engine: every running Lua script (songs, state scripts, custom states, scripted classes). **/
+	public static var activeScripts:Array<FunkinLua> = [];
+
+	public function new(scriptName:String, ?attachToGame:Bool = true) {
 		lua = LuaL.newstate();
 		LuaL.openlibs(lua);
 
@@ -68,7 +71,8 @@ class FunkinLua {
 
 		this.scriptName = scriptName.trim();
 		var game:PlayState = PlayState.instance;
-		if(game != null) game.luaArray.push(this);
+		if(game != null && attachToGame) game.luaArray.push(this);
+		activeScripts.push(this);
 
 		var myFolder:Array<String> = this.scriptName.split('/');
 		#if MODS_ALLOWED
@@ -89,20 +93,23 @@ class FunkinLua {
 
 		// Song/Week shit
 		set('curBpm', Conductor.bpm);
-		set('bpm', PlayState.SONG.bpm);
-		set('scrollSpeed', PlayState.SONG.speed);
 		set('crochet', Conductor.crochet);
 		set('stepCrochet', Conductor.stepCrochet);
-		set('songLength', FlxG.sound.music.length);
+		set('songLength', (FlxG.sound.music != null) ? FlxG.sound.music.length : 0);
+		set('startedCountdown', false);
+		set('isStoryMode', PlayState.isStoryMode);
+		set('seenCutscene', PlayState.seenCutscene);
+		if(PlayState.SONG != null) // Vortex Engine: no song is loaded when a script runs in a menu / custom state
+		{
+		set('bpm', PlayState.SONG.bpm);
+		set('scrollSpeed', PlayState.SONG.speed);
 		set('songName', PlayState.SONG.song);
 		set('songPath', Paths.formatToSongPath(PlayState.SONG.song));
 		set('loadedSongName', Song.loadedSongName);
 		set('loadedSongPath', Paths.formatToSongPath(Song.loadedSongName));
 		set('chartPath', Song.chartPath);
-		set('startedCountdown', false);
 		set('curStage', PlayState.SONG.stage);
 
-		set('isStoryMode', PlayState.isStoryMode);
 		set('difficulty', PlayState.storyDifficulty);
 
 		set('difficultyName', Difficulty.getString(false));
@@ -110,10 +117,13 @@ class FunkinLua {
 		set('difficultyNameTranslation', Difficulty.getString(true));
 		set('weekRaw', PlayState.storyWeek);
 		set('week', WeekData.weeksList[PlayState.storyWeek]);
-		set('seenCutscene', PlayState.seenCutscene);
 		set('hasVocals', PlayState.SONG.needsVoices);
 
 		// Screen stuff
+		}
+		set('inSong', PlayState.instance != null);
+		set('curState', (FlxG.state != null) ? Type.getClassName(Type.getClass(FlxG.state)).split('.').pop() : '');
+
 		set('screenWidth', FlxG.width);
 		set('screenHeight', FlxG.height);
 
@@ -589,7 +599,7 @@ class FunkinLua {
 						onComplete: function(twn:FlxTween)
 						{
 							variables.remove(tag);
-							if (game != null) game.callOnLuas('onTweenCompleted', [originalTag, vars]);
+							LuaUtils.callOnLuas('onTweenCompleted', [originalTag, vars], this);
 						}
 					}));
 					return tag;
@@ -661,7 +671,7 @@ class FunkinLua {
 			variables.set(tag, new FlxTimer().start(time, function(tmr:FlxTimer)
 			{
 				if(tmr.finished) variables.remove(tag);
-				game.callOnLuas('onTimerCompleted', [originalTag, tmr.loops, tmr.loopsLeft]);
+				LuaUtils.callOnLuas('onTimerCompleted', [originalTag, tmr.loops, tmr.loopsLeft], this);
 				//trace('Timer Completed: ' + tag);
 			}, loops));
 			return tag;
@@ -1012,8 +1022,8 @@ class FunkinLua {
 		});
 
 		Lua_helper.add_callback(lua, "setScrollFactor", function(obj:String, scrollX:Float, scrollY:Float) {
-			if(game.getLuaObject(obj) != null) {
-				game.getLuaObject(obj).scrollFactor.set(scrollX, scrollY);
+			if(MusicBeatState.getVariables().get(obj) != null) {
+				MusicBeatState.getVariables().get(obj).scrollFactor.set(scrollX, scrollY);
 				return;
 			}
 
@@ -1031,15 +1041,17 @@ class FunkinLua {
 				instance.add(mySprite);
 			else
 			{
-				if(PlayState.instance == null || !PlayState.instance.isDead)
+				if(PlayState.instance == null)
+					instance.add(mySprite); // Vortex Engine: menus / custom states have no character layers
+				else if(!PlayState.instance.isDead)
 					instance.insert(instance.members.indexOf(LuaUtils.getLowestCharacterGroup()), mySprite);
 				else
 					GameOverSubstate.instance.insert(GameOverSubstate.instance.members.indexOf(GameOverSubstate.instance.boyfriend), mySprite);
 			}
 		});
 		Lua_helper.add_callback(lua, "setGraphicSize", function(obj:String, x:Float, y:Float = 0, updateHitbox:Bool = true) {
-			if(game.getLuaObject(obj)!=null) {
-				var shit:FlxSprite = game.getLuaObject(obj);
+			if(MusicBeatState.getVariables().get(obj)!=null) {
+				var shit:FlxSprite = MusicBeatState.getVariables().get(obj);
 				shit.setGraphicSize(x, y);
 				if(updateHitbox) shit.updateHitbox();
 				return;
@@ -1059,8 +1071,8 @@ class FunkinLua {
 			luaTrace('setGraphicSize: Couldnt find object: ' + obj, false, false, FlxColor.RED);
 		});
 		Lua_helper.add_callback(lua, "scaleObject", function(obj:String, x:Float, y:Float, updateHitbox:Bool = true) {
-			if(game.getLuaObject(obj)!=null) {
-				var shit:FlxSprite = game.getLuaObject(obj);
+			if(MusicBeatState.getVariables().get(obj)!=null) {
+				var shit:FlxSprite = MusicBeatState.getVariables().get(obj);
 				shit.scale.set(x, y);
 				if(updateHitbox) shit.updateHitbox();
 				return;
@@ -1080,8 +1092,8 @@ class FunkinLua {
 			luaTrace('scaleObject: Couldnt find object: ' + obj, false, false, FlxColor.RED);
 		});
 		Lua_helper.add_callback(lua, "updateHitbox", function(obj:String) {
-			if(game.getLuaObject(obj)!=null) {
-				var shit:FlxSprite = game.getLuaObject(obj);
+			if(MusicBeatState.getVariables().get(obj)!=null) {
+				var shit:FlxSprite = MusicBeatState.getVariables().get(obj);
 				shit.updateHitbox();
 				return;
 			}
@@ -1149,7 +1161,7 @@ class FunkinLua {
 		});
 
 		Lua_helper.add_callback(lua, "setObjectCamera", function(obj:String, camera:String = 'game') {
-			var real:FlxBasic = game.getLuaObject(obj);
+			var real:FlxBasic = MusicBeatState.getVariables().get(obj);
 			if(real != null) {
 				real.cameras = [LuaUtils.cameraFromString(camera)];
 				return true;
@@ -1169,7 +1181,7 @@ class FunkinLua {
 			return false;
 		});
 		Lua_helper.add_callback(lua, "setBlendMode", function(obj:String, blend:String = '') {
-			var real:FlxSprite = game.getLuaObject(obj);
+			var real:FlxSprite = MusicBeatState.getVariables().get(obj);
 			if(real != null) {
 				real.blend = LuaUtils.blendModeFromString(blend);
 				return true;
@@ -1189,7 +1201,7 @@ class FunkinLua {
 			return false;
 		});
 		Lua_helper.add_callback(lua, "screenCenter", function(obj:String, pos:String = 'xy') {
-			var spr:FlxObject = game.getLuaObject(obj);
+			var spr:FlxObject = MusicBeatState.getVariables().get(obj);
 
 			if(spr==null){
 				var split:Array<String> = obj.split('.');
@@ -1221,7 +1233,7 @@ class FunkinLua {
 			var objectsArray:Array<FlxBasic> = [];
 			for (i in 0...namesArray.length)
 			{
-				var real:FlxBasic = game.getLuaObject(namesArray[i]);
+				var real:FlxBasic = MusicBeatState.getVariables().get(namesArray[i]);
 				if(real != null)
 					objectsArray.push(real);
 				else
@@ -1330,7 +1342,7 @@ class FunkinLua {
 				variables.set(tag, FlxG.sound.play(Paths.sound(sound), volume, loop, null, true, function()
 				{
 					if(!loop) variables.remove(tag);
-					if(game != null) game.callOnLuas('onSoundFinished', [originalTag]);
+					LuaUtils.callOnLuas('onSoundFinished', [originalTag], this);
 				}));
 				return tag;
 			}
@@ -1547,7 +1559,29 @@ class FunkinLua {
 		});
 		//
 
-		Lua_helper.add_callback(lua, "debugPrint", function(text:Dynamic = '', color:String = 'WHITE') PlayState.instance.addTextToDebug(text, CoolUtil.colorFromString(color)));
+		Lua_helper.add_callback(lua, "debugPrint", function(text:Dynamic = '', color:String = 'WHITE') LuaUtils.debugPrint(text, CoolUtil.colorFromString(color)));
+
+		// ---- Vortex Engine: custom states, state switching and scripted classes ----
+		Lua_helper.add_callback(lua, "switchState", function(name:String, ?args:Dynamic = null) {
+			return states.ScriptedState.switchToState(name, LuaUtils.toArgArray(args));
+		});
+		Lua_helper.add_callback(lua, "stateExists", function(name:String) return states.ScriptedState.stateExists(name));
+		Lua_helper.add_callback(lua, "getStateName", function() return states.ScriptedState.currentName());
+		Lua_helper.add_callback(lua, "getStateArgs", function() {
+			var st = Std.downcast(FlxG.state, states.ScriptedState);
+			return (st != null) ? st.args : [];
+		});
+		Lua_helper.add_callback(lua, "createScripted", function(className:String, tag:String, ?x:Float = 0, ?y:Float = 0, ?a1:Dynamic, ?a2:Dynamic, ?a3:Dynamic, ?a4:Dynamic, ?a5:Dynamic) {
+			var spr = ScriptedClasses.create(className, tag, x, y, LuaUtils.trimArgs([a1, a2, a3, a4, a5]));
+			return (spr != null) ? tag : null;
+		});
+		Lua_helper.add_callback(lua, "callScripted", function(tag:String, method:String, ?a1:Dynamic, ?a2:Dynamic, ?a3:Dynamic, ?a4:Dynamic, ?a5:Dynamic) {
+			return ScriptedClasses.callMethod(tag, method, LuaUtils.trimArgs([a1, a2, a3, a4, a5]));
+		});
+		Lua_helper.add_callback(lua, "destroyScripted", function(tag:String) return ScriptedClasses.destroyInstance(tag));
+		Lua_helper.add_callback(lua, "scriptedExists", function(tag:String) return ScriptedClasses.instanceExists(tag));
+		Lua_helper.add_callback(lua, "scriptedClassExists", function(className:String) return ScriptedClasses.classExists(className));
+		Lua_helper.add_callback(lua, "getScriptedOf", function(className:String) return ScriptedClasses.instancesOf(className));
 
 		addLocalCallback("close", function() {
 			closed = true;
@@ -1659,6 +1693,8 @@ class FunkinLua {
 
 	public function stop() {
 		closed = true;
+		activeScripts.remove(this);
+		if(lastCalledScript == this) lastCalledScript = null;
 
 		if(lua == null) {
 			return;
@@ -1688,7 +1724,7 @@ class FunkinLua {
 					onComplete: function(twn:FlxTween)
 					{
 						variables.remove(tag);
-						if(PlayState.instance != null) PlayState.instance.callOnLuas('onTweenCompleted', [originalTag, vars]);
+						LuaUtils.callOnLuas('onTweenCompleted', [originalTag, vars], this);
 					}
 				}));
 			}
@@ -1717,7 +1753,7 @@ class FunkinLua {
 				onComplete: function(twn:FlxTween)
 				{
 					variables.remove(tag);
-					if(PlayState.instance != null) PlayState.instance.callOnLuas('onTweenCompleted', [originalTag]);
+					LuaUtils.callOnLuas('onTweenCompleted', [originalTag], this);
 				}
 			}));
 			return tag;
@@ -1731,7 +1767,7 @@ class FunkinLua {
 			if(deprecated && !getBool('luaDeprecatedWarnings')) {
 				return;
 			}
-			PlayState.instance.addTextToDebug(text, color);
+			LuaUtils.debugPrint(text, color);
 		}
 	}
 

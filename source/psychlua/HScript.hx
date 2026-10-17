@@ -201,8 +201,25 @@ class HScript extends Iris
 		});
 		set('debugPrint', function(text:String, ?color:FlxColor = null) {
 			if(color == null) color = FlxColor.WHITE;
-			PlayState.instance.addTextToDebug(text, color);
+			LuaUtils.debugPrint(text, color);
 		});
+
+		// Vortex Engine: custom states and scripted classes
+		set('ScriptedState', states.ScriptedState);
+		set('switchState', function(name:String, ?args:Array<Dynamic>) return states.ScriptedState.switchToState(name, args));
+		set('stateExists', function(name:String) return states.ScriptedState.stateExists(name));
+		set('getStateName', function() return states.ScriptedState.currentName());
+		set('getStateArgs', function() {
+			var st = Std.downcast(FlxG.state, states.ScriptedState);
+			return (st != null) ? st.args : [];
+		});
+		set('createScripted', function(className:String, tag:String, ?x:Float = 0, ?y:Float = 0, ?args:Array<Dynamic>) return ScriptedClasses.create(className, tag, x, y, args));
+		set('callScripted', function(tag:String, method:String, ?args:Array<Dynamic>) return ScriptedClasses.callMethod(tag, method, args));
+		set('destroyScripted', function(tag:String) return ScriptedClasses.destroyInstance(tag));
+		set('scriptedExists', function(tag:String) return ScriptedClasses.instanceExists(tag));
+		set('scriptedClassExists', function(className:String) return ScriptedClasses.classExists(className));
+		set('getScriptedOf', function(className:String) return ScriptedClasses.instancesOf(className));
+		set('getScripted', function(tag:String) return ScriptedClasses.getSprite(tag));
 		set('getModSetting', function(saveTag:String, ?modName:String = null) {
 			if(modName == null)
 			{

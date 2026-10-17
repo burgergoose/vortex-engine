@@ -172,7 +172,7 @@ class LuaUtils
 		{
 			FlxG.save.data.modSettings.remove(modName);
 			#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
-			PlayState.instance.addTextToDebug('getModSetting: $path could not be found!', FlxColor.RED);
+			debugPrint('getModSetting: $path could not be found!', FlxColor.RED);
 			#else
 			FlxG.log.warn('getModSetting: $path could not be found!');
 			#end
@@ -181,7 +181,7 @@ class LuaUtils
 
 		if(settings.exists(saveTag)) return settings.get(saveTag);
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
-		PlayState.instance.addTextToDebug('getModSetting: "$saveTag" could not be found inside $modName\'s settings!', FlxColor.RED);
+		debugPrint('getModSetting: "$saveTag" could not be found inside $modName\'s settings!', FlxColor.RED);
 		#else
 		FlxG.log.warn('getModSetting: "$saveTag" could not be found inside $modName\'s settings!');
 		#end
@@ -268,6 +268,61 @@ class LuaUtils
 		return (value == null || isOfTypes(value, [Bool, Int, Float, String, Array]) || Type.typeof(value) == ValueType.TObject);
 	}
 	
+	// ---- Vortex Engine helpers: let scripts work in any state, not only during a song ----
+
+	/** Shows a message from a script: the in-song debug text, or the on-screen debug list in menus / custom states. **/
+	public static function debugPrint(text:Dynamic, ?color:FlxColor = FlxColor.WHITE)
+	{
+		var str:String = Std.string(text);
+		if(PlayState.instance != null)
+		{
+			PlayState.instance.addTextToDebug(str, color);
+			return;
+		}
+		trace('[script] ' + str);
+		var st:MusicBeatState = Std.downcast(FlxG.state, MusicBeatState);
+		if(st != null) st.addDebugText(str, color);
+	}
+
+	/** Calls a function on the scripts of whatever is running (the song, or the current state's scripts).
+		`origin` (the script that asked) also gets it when it isn't one of those, e.g. a scripted class. **/
+	public static function callOnLuas(funcToCall:String, args:Array<Dynamic>, ?origin:#if LUA_ALLOWED FunkinLua #else Dynamic #end = null):Dynamic
+	{
+		var ret:Dynamic = Function_Continue;
+		#if LUA_ALLOWED
+		var reached:Bool = false;
+		if(PlayState.instance != null)
+		{
+			ret = PlayState.instance.callOnLuas(funcToCall, args);
+			reached = (origin == null || PlayState.instance.luaArray.contains(origin));
+		}
+		else
+		{
+			var st:MusicBeatState = Std.downcast(FlxG.state, MusicBeatState);
+			if(st != null)
+			{
+				ret = st.callOnStateScripts(funcToCall, args);
+				reached = (origin == null || st.stateLuaArray.contains(origin));
+			}
+		}
+		if(origin != null && !reached && !origin.closed) origin.call(funcToCall, args);
+		#end
+		return ret;
+	}
+
+	public static function toArgArray(args:Dynamic):Array<Dynamic>
+	{
+		if(args == null) return [];
+		if(Std.isOfType(args, Array)) return args;
+		return [args];
+	}
+
+	public static function trimArgs(args:Array<Dynamic>):Array<Dynamic>
+	{
+		while(args.length > 0 && args[args.length - 1] == null) args.pop();
+		return args;
+	}
+
 	public static function getTargetInstance()
 	{
 		if(PlayState.instance != null) return PlayState.instance.isDead ? GameOverSubstate.instance : PlayState.instance;
