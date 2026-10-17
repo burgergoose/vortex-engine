@@ -30,7 +30,8 @@ class Mods
 		'scripts',
 		'achievements',
 		'states', // Vortex Engine: custom states / state scripts
-		'classes' // Vortex Engine: scripted classes
+		'classes', // Vortex Engine: scripted classes
+		'lib' // Vortex Engine: shared Lua modules for require()
 	];
 
 	private static var globalMods:Array<String> = [];

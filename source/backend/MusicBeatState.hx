@@ -279,11 +279,15 @@ class MusicBeatState extends FlxState
 	{
 		var found:Int = 0;
 		#if MODS_ALLOWED
+		// Vortex Engine: states/Global.lua / Global.hx run in EVERY menu and custom state (not songs: use scripts/ there),
+		// before the state's own scripts. Use getStateName() inside them to tell states apart.
+		var names:Array<String> = (name.toLowerCase() != 'global') ? ['Global', name] : [name];
+		for (scriptName in names)
 		for (folder in Mods.allModFoldersWith('states/'))
 		{
 			if(!folder.endsWith('/')) folder += '/';
 			#if LUA_ALLOWED
-			var luaFile:String = folder + name + '.lua';
+			var luaFile:String = folder + scriptName + '.lua';
 			if(FileSystem.exists(luaFile))
 			{
 				var script = new psychlua.FunkinLua(luaFile, false);
@@ -292,52 +296,74 @@ class MusicBeatState extends FlxState
 			}
 			#end
 			#if HSCRIPT_ALLOWED
-			var hxFile:String = folder + name + '.hx';
-			if(FileSystem.exists(hxFile))
-			{
-				try
-				{
-					var hs = new psychlua.HScript(null, hxFile);
-					if(hs.exists('onCreate')) hs.call('onCreate');
-					stateHScripts.push(hs);
-					found++;
-				}
-				catch(e:Dynamic) { psychlua.LuaUtils.debugPrint('Error in $hxFile: $e', FlxColor.RED); }
-			}
+			if(addStateHScript(folder + scriptName + '.hx')) found++;
 			#end
 		}
 		#end
 		return found;
 	}
 
-	/** Calls a function on this state's scripts. Returns the first result that isn't Function_Continue. **/
-	public function callOnStateScripts(funcToCall:String, ?args:Array<Dynamic>):Dynamic
+	#if HSCRIPT_ALLOWED
+	/** Starts an HScript on this state (calls its onCreate). Returns false if the file is missing or broken. **/
+	public function addStateHScript(hxFile:String):Bool
+	{
+		if(!FileSystem.exists(hxFile)) return false;
+		try
+		{
+			var hs = new psychlua.HScript(null, hxFile);
+			if(hs.exists('onCreate')) hs.call('onCreate');
+			stateHScripts.push(hs);
+			return true;
+		}
+		catch(e:Dynamic)
+		{
+			psychlua.ScriptLog.error('HScript: $hxFile (loading)', Std.string(e));
+			psychlua.LuaUtils.debugPrint('Error in $hxFile: $e', FlxColor.RED);
+		}
+		return false;
+	}
+	#else
+	public function addStateHScript(hxFile:String):Bool return false;
+	#end
+
+	/**
+	 * Calls a function on this state's scripts. Returns the last result that isn't Function_Continue.
+	 * `exclusions` = script paths to skip; `lua` / `hscript` pick which kind of script gets the call.
+	 * Vortex Engine: scripted classes (classes/*.lua|hx) created in this state get the call too, with `self` first.
+	 */
+	public function callOnStateScripts(funcToCall:String, ?args:Array<Dynamic>, ?exclusions:Array<String>, lua:Bool = true, hscript:Bool = true):Dynamic
 	{
 		var ret:Dynamic = psychlua.LuaUtils.Function_Continue;
 		if(args == null) args = [];
 		#if LUA_ALLOWED
+		if(lua)
 		for (script in stateLuaArray.copy())
 		{
 			if(script.closed) { stateLuaArray.remove(script); script.stop(); continue; }
+			if(exclusions != null && exclusions.contains(script.scriptName)) continue;
 			var r:Dynamic = script.call(funcToCall, args);
 			if(r != null && r != psychlua.LuaUtils.Function_Continue) ret = r;
 		}
 		#end
 		#if HSCRIPT_ALLOWED
+		if(hscript)
 		for (hs in stateHScripts.copy())
 		{
 			if(hs == null || !hs.exists(funcToCall)) continue;
+			if(exclusions != null && exclusions.contains(hs.origin)) continue;
 			var c = hs.call(funcToCall, args);
 			if(c != null && c.returnValue != null && c.returnValue != psychlua.LuaUtils.Function_Continue) ret = c.returnValue;
 		}
 		#end
+		psychlua.ScriptedClasses.dispatch(funcToCall, args);
 		return ret;
 	}
 
-	public function setOnStateScripts(variable:String, value:Dynamic)
+	public function setOnStateScripts(variable:String, value:Dynamic, ?exclusions:Array<String>, lua:Bool = true, hscript:Bool = true)
 	{
-		#if LUA_ALLOWED for (script in stateLuaArray) script.set(variable, value); #end
-		#if HSCRIPT_ALLOWED for (hs in stateHScripts) hs.set(variable, value); #end
+		#if LUA_ALLOWED if(lua) for (script in stateLuaArray) if(exclusions == null || !exclusions.contains(script.scriptName)) script.set(variable, value); #end
+		#if HSCRIPT_ALLOWED if(hscript) for (hs in stateHScripts) if(exclusions == null || !exclusions.contains(hs.origin)) hs.set(variable, value); #end
+		psychlua.ScriptedClasses.setVar(variable, value, lua, hscript);
 	}
 
 	// on-screen debugPrint() output for menus / custom states (songs use PlayState's own list)

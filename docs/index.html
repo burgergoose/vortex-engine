@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vortex Engine Modding Docs</title>
-<meta name="description" content="How to mod Vortex Engine: Lua and HScript, custom states, scripted classes, state scripts and custom events.">
+<meta name="description" content="How to mod Vortex Engine: Lua and HScript, custom states, scripted classes, state scripts, shared modules, mod key binds, script-made notes and custom events.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -36,10 +36,15 @@
       <a href="#custom-states">Custom states</a>
       <a href="#state-scripts">State scripts</a>
       <a href="#scripted-classes">Scripted classes</a>
+      <a href="#global-scripts">Global scripts &amp; variables</a>
+      <a href="#require">Shared code (require)</a>
+      <a href="#substates">Custom substates</a>
       <a href="#hscript">HScript (.hx)</a>
     </div>
     <div class="nav-group">
       <div class="nav-title">Songs</div>
+      <a href="#spawn-note">Notes from scripts</a>
+      <a href="#keybinds">Mod key binds</a>
       <a href="#custom-events">Custom events</a>
       <a href="#change-stage">Change Stage event</a>
       <a href="#song-files">Song audio files</a>
@@ -66,6 +71,11 @@
       <span class="chip new">State scripts</span>
       <span class="chip new">Lua outside songs</span>
       <span class="chip new">Change Stage event</span>
+      <span class="chip new">require() modules</span>
+      <span class="chip new">Global variables</span>
+      <span class="chip new">Mod key binds</span>
+      <span class="chip new">spawnNote</span>
+      <span class="chip new">Script error log</span>
       <span class="chip">Psych 1.0 compatible</span>
     </div>
   </div>
@@ -86,8 +96,10 @@
    ├─ scripts/                 <i>Lua/HScript that runs in every song</i>
    ├─ custom_events/           <i>your chart events</i>
    ├─ custom_notetypes/
-   ├─ <b>states/</b>                  <i>Vortex: custom states + menu scripts</i>
-   └─ <b>classes/</b>                 <i>Vortex: scripted classes</i></div>
+   ├─ <b>states/</b>                  <i>Vortex: custom states + menu scripts (+ Global.lua)</i>
+   ├─ <b>classes/</b>                 <i>Vortex: scripted classes</i>
+   ├─ <b>lib/</b>                     <i>Vortex: shared Lua modules for require()</i>
+   └─ data/<b>keybinds.json</b>         <i>Vortex: your mod's own rebindable keys</i></div>
   <ul>
     <li>Mods are switched on and off in the <strong>Mods</strong> menu. A new folder is switched on automatically.</li>
     <li><strong>Songs without a week:</strong> a song that has a chart in <code>data/&lt;song&gt;/</code> but isn't in any week file still shows up in Freeplay and Story Mode, in an automatic week named after the mod.</li>
@@ -107,10 +119,12 @@
       <tr><td><code>stages/&lt;stage&gt;.lua</code></td><td>When that stage is used</td><td><span class="tag psych">Psych</span></td></tr>
       <tr><td><code>characters/&lt;name&gt;.lua</code></td><td>When that character is in the song</td><td><span class="tag psych">Psych</span></td></tr>
       <tr><td><code>custom_events/&lt;Event&gt;.lua</code></td><td>When the event is in the chart, or the first time a script fires it</td><td><span class="tag psych">Psych</span> <span class="tag vortex">Vortex</span></td></tr>
-      <tr><td><code>custom_notetypes/&lt;Type&gt;.lua</code></td><td>When the chart uses that note type</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>custom_notetypes/&lt;Type&gt;.lua</code></td><td>When the chart uses that note type, or the first time <code>spawnNote</code> makes one</td><td><span class="tag psych">Psych</span> <span class="tag vortex">Vortex</span></td></tr>
       <tr><td><code>states/&lt;BuiltInState&gt;.lua</code></td><td>Alongside a built-in screen, e.g. <code>states/MainMenuState.lua</code></td><td><span class="tag vortex">Vortex</span></td></tr>
       <tr><td><code>states/&lt;YourState&gt;.lua</code></td><td>As a whole screen, opened with <code>switchState('YourState')</code></td><td><span class="tag vortex">Vortex</span></td></tr>
       <tr><td><code>classes/&lt;Class&gt;.lua</code></td><td>When you create an object from it with <code>createScripted</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>states/Global.lua</code></td><td>In <em>every</em> menu and custom state, before that state's own script</td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>lib/&lt;name&gt;.lua</code></td><td>Never by itself: other scripts load it with <code>require('name')</code></td><td><span class="tag vortex">Vortex</span></td></tr>
     </tbody>
   </table>
   <div class="callout tip"><strong>Which mod's files are used?</strong> In songs, it's the mod the song belongs to, plus any mods with <code>"runsGlobally": true</code> in their <code>pack.json</code>. For <code>states/</code> and <code>classes/</code>, Vortex looks in <em>every enabled mod</em> (the current one first). That's because in menus only the top mod is "current".</div>
@@ -120,8 +134,16 @@
 <section id="debugging">
   <h2>Debugging</h2>
   <ul>
-    <li><code>debugPrint('text')</code> shows a message on screen. It now works everywhere: in songs, in menus and in custom states. Outside songs the messages appear top-left and fade after about 6 seconds.</li>
-    <li>Put <code>luaDebugMode = true</code> at the top of a Lua script to see its errors on screen, for example a typo in a function name. Psych hides these by default.</li>
+    <li><span class="tag vortex">Vortex</span> <strong>Every script error goes to <code>vortex_script_log.txt</code></strong> next to the exe: Lua and HScript, in songs and menus. Lua errors include the file, the line and the full stack traceback:
+<pre><code>23:38:29 [ERROR] Lua: mods/My-Mod/states/Gallery.lua (onUpdate)
+  mods/My-Mod/states/Gallery.lua:59: attempt to index local 'broken' (a nil value)
+  stack traceback:
+  	mods/My-Mod/states/Gallery.lua:59: in function &lt;mods/My-Mod/states/Gallery.lua:53&gt;</code></pre></li>
+    <li><span class="tag vortex">Vortex</span> A runtime error is also shown on screen <strong>once</strong>, in red. Psych only showed Lua errors with <code>luaDebugMode</code> on, so broken scripts failed silently. The same error is never repeated, so an error in <code>onUpdate</code> doesn't flood the screen or the log 60 times a second.</li>
+    <li>Put <code>luaDebugMode = true</code> at the top of a Lua script to print <em>every</em> occurrence of its errors, plus Psych's extra warnings.</li>
+    <li><code>debugPrint('text')</code> shows a message on screen. It works everywhere: in songs, in menus and in custom states. Outside songs the messages appear top-left and fade after about 6 seconds.</li>
+    <li><span class="tag vortex">Vortex</span> <code>writeToScriptLog('text')</code> adds your own line to the log. <code>getScriptErrorCount()</code> tells you how many different errors happened this session.</li>
+    <li><span class="tag vortex">Vortex</span> Press <strong>F3</strong> for the developer overlay. In a song it shows how many notes are on screen or waiting, how long the chart took to build, how many Lua and HScript scripts are running, and the script error count. <strong>F7</strong> reloads the song and its scripts, and shows already-seen errors again.</li>
     <li>If the game hits an error it can't handle, it goes back to the main menu and shows a red message instead of closing. Full details go to the <code>crash/</code> folder next to the exe.</li>
   </ul>
 </section>
@@ -139,8 +161,11 @@
     <li>Tweens, timers and sounds: <code>doTweenX</code> and friends, <code>runTimer</code>, <code>playSound</code>, <code>playMusic</code>. Their <code>onTweenCompleted</code>, <code>onTimerCompleted</code> and <code>onSoundFinished</code> callbacks reach the scripts of whatever screen is running.</li>
     <li>Input: <code>keyboardJustPressed</code>, <code>keyboardPressed</code>, the gamepad functions and <code>mouseClicked</code>.</li>
     <li><code>debugPrint</code>, <code>getModSetting</code>.</li>
+    <li>Talking to other scripts: <code>callOnScripts</code>, <code>callOnLuas</code>, <code>callOnHScript</code>, <code>setOnScripts</code>, <code>setOnLuas</code>, <code>setOnHScript</code>, <code>callScript</code>, <code>isRunning</code>, <code>addLuaScript</code>, <code>addHScript</code>, <code>removeLuaScript</code>, <code>getRunningScripts</code>. Outside songs they reach the scripts of the current screen. In Psych they crashed the game there.</li>
+    <li>Controls: <code>keyJustPressed</code>, <code>keyPressed</code> and <code>keyReleased</code> work in menus too (they crashed there), and accept any bind name, including <a href="#keybinds">your mod's own key binds</a>.</li>
+    <li><code>startTween</code> with <code>onUpdate</code> / <code>onStart</code> / <code>onComplete</code> callbacks, and <a href="#substates">custom substates</a>.</li>
   </ul>
-  <p>Song-only functions such as <code>characterDance</code>, <code>setHealth</code> or note functions still need a song. In a menu they fail with a Lua error instead of crashing the game (turn on <code>luaDebugMode</code> to see it).</p>
+  <p>Song-only functions such as <code>characterDance</code>, <code>setHealth</code> or note functions still need a song. In a menu they fail with a script error (written to <code>vortex_script_log.txt</code>) instead of crashing the game.</p>
   <div class="callout"><code>addLuaSprite(tag, false)</code> normally places the sprite behind the characters. Outside a song there are no characters, so the sprite is simply added on top.</div>
 
   <h3>New global variables <span class="tag vortex">Vortex</span></h3>
@@ -149,6 +174,7 @@
     <tbody>
       <tr><td><code>inSong</code></td><td><code>true</code> when the script is running during a song.</td></tr>
       <tr><td><code>curState</code></td><td>Name of the screen the script was started on, e.g. <code>'MainMenuState'</code> or <code>'ScriptedState'</code>.</td></tr>
+      <tr><td><code>vortexVersion</code>, <code>engineName</code></td><td>The engine's version and name, e.g. <code>'0.1.0'</code> and <code>'Vortex Engine'</code>.</td></tr>
     </tbody>
   </table>
   <p>Song variables like <code>songName</code>, <code>bpm</code> and <code>difficulty</code> are only set while a song is loaded.</p>
@@ -264,9 +290,22 @@ if scriptedExists('red') then destroyScripted('red') end</code></pre>
       <tr><td><code>beatHit(self, beat)</code></td><td>Every beat, while music is driving the beat clock (in songs).</td></tr>
       <tr><td><code>stepHit(self, step)</code></td><td>Every step, under the same conditions.</td></tr>
       <tr><td><code>destroy(self)</code></td><td>When <code>destroyScripted</code> removes the instance.</td></tr>
+      <tr><td><em>any script callback</em></td><td><span class="tag vortex">New</span> <code>onBeatHit(self)</code>, <code>goodNoteHit(self, ...)</code>, <code>onEvent(self, ...)</code>, <code>onKeyPress(self, key)</code> and so on, plus your own callbacks sent with <code>callOnScripts</code> / <code>callOnLuas</code>. The class gets the same arguments as normal scripts, with <code>self</code> in front.</td></tr>
       <tr><td><em>anything else</em></td><td>Called with <code>callScripted(tag, 'name', ...)</code>.</td></tr>
     </tbody>
   </table>
+<pre data-file="mods/My-Mod/classes/Pinger.lua"><code>function new(self, size)
+    makeGraphic(self, size or 20, size or 20, 'FF00FF')
+    addLuaSprite(self)
+end
+
+function onBeatHit(self)            -- song / menu callbacks reach classes too
+    setProperty(self .. '.angle', curBeat * 15)   -- curBeat, crochet... stay up to date in classes
+end
+
+function ping(self, value)          -- a custom callback: callOnScripts('ping', {5}) reaches every instance
+    debugPrint(self .. ' got ' .. tostring(value))
+end</code></pre>
   <ul>
     <li>Each class script is loaded <strong>once per screen</strong> and shared by all its instances. Lua variables at the top of the file are shared too, so store per-instance data in a table keyed by <code>self</code>, as above.</li>
     <li><code>new</code> doesn't add the sprite to the screen by itself. Call <code>addLuaSprite(self, true)</code> (Lua) or <code>FlxG.state.add(self)</code> (HScript) when you want it shown.</li>
@@ -286,6 +325,62 @@ function update(self, elapsed) {
 </section>
 
 <!-- ============================================================ -->
+<section id="global-scripts">
+  <h2>Global scripts &amp; variables <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead"><code>states/Global.lua</code> (or <code>.hx</code>) runs in every menu and custom state, right before the screen's own state script. Use <code>getStateName()</code> to react to specific screens. For songs, keep using <code>scripts/</code>.</p>
+<pre data-file="mods/My-Mod/states/Global.lua"><code>function onCreatePost()
+    setGlobalVar('screensVisited', getGlobalVar('screensVisited', 0) + 1)
+    if getStateName() == 'MainMenuState' then
+        debugPrint('Screens visited: ' .. getGlobalVar('screensVisited'))
+    end
+end</code></pre>
+  <p><strong>Global variables</strong> keep their value when the screen changes and between songs, for the whole session. They're not saved to disk; use <code>initSaveData</code> for that. <code>setVar</code> / <code>getVar</code> still work as in Psych and are cleared on every screen change.</p>
+  <table>
+    <thead><tr><th>Function</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>setGlobalVar(name, value)</code></td><td>Stores a value. Returns it.</td></tr>
+      <tr><td><code>getGlobalVar(name, default?)</code></td><td>The value, or <code>default</code> (or <code>nil</code>) if it was never set.</td></tr>
+      <tr><td><code>globalVarExists(name)</code></td><td><code>true</code> if it was set.</td></tr>
+      <tr><td><code>removeGlobalVar(name)</code></td><td>Forgets it.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section id="require">
+  <h2>Shared code with require() <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Put code you use in several scripts in <code>lib/</code> and load it with Lua's normal <code>require</code>. Files in <code>lib/</code> never run by themselves.</p>
+<pre data-file="mods/My-Mod/lib/mathutil.lua"><code>local M = {}
+function M.double(x) return x * 2 end
+return M</code></pre>
+<pre data-file="mods/My-Mod/scripts/anything.lua"><code>local mathutil = require('mathutil')
+debugPrint(mathutil.double(21))   -- 42</code></pre>
+  <p><code>require('name')</code> looks in this order: <code>mods/&lt;your mod&gt;/lib/name.lua</code>, <code>mods/&lt;your mod&gt;/lib/name/init.lua</code>, <code>mods/lib/name.lua</code>, the script's own folder, then Lua's usual places. Each script gets its own copy of a module, loaded once.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="substates">
+  <h2>Custom substates <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Psych's <code>openCustomSubstate</code> (a screen on top of the current one, like a popup) now works in menus and custom states too, not only in songs. The current screen's scripts get its callbacks.</p>
+<pre data-file="mods/My-Mod/states/Gallery.lua"><code>local frame = 0
+function onUpdate(elapsed)
+    frame = frame + 1
+    if frame == 2 then openCustomSubstate('info') end   -- after the screen's fade-in has started
+end
+
+function onCustomSubstateCreate(name)
+    makeLuaText('infoText', 'Press ENTER to close', 600, 340, 340)
+    addLuaText('infoText')
+    insertToCustomSubstate('infoText')
+end
+
+function onCustomSubstateUpdate(name, elapsed)
+    if keyboardJustPressed('ENTER') then closeCustomSubstate() end
+end</code></pre>
+  <div class="callout warn">Don't open a substate from <code>onCreate</code>: the screen's fade-in transition opens right after and replaces it. Open it on a later frame, as above, or from input.</div>
+</section>
+
+<!-- ============================================================ -->
 <section id="hscript">
   <h2>HScript (.hx)</h2>
   <p class="section-lead">Any script above can be written in HScript (Haxe syntax) by using <code>.hx</code> instead of <code>.lua</code>. HScript has direct access to Flixel and engine classes (<code>FlxG</code>, <code>FlxSprite</code>, <code>FlxTween</code>, <code>Paths</code>...), as in Psych Engine 1.0.</p>
@@ -295,6 +390,58 @@ var spr = createScripted('Bouncer', 'red', 300, 300, ['FF4F7A']);  // returns th
 callScripted('red', 'jump', [120]);
 var sameSprite = getScripted('red');
 var args = getStateArgs();</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="spawn-note">
+  <h2>Notes from scripts <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead"><code>spawnNote</code> adds a note while the song is playing, for mechanics that aren't in the chart: random notes, patterns generated from code, notes made by an event. It's built exactly like a chart note, holds included.</p>
+<pre data-file="mods/My-Mod/scripts/extra-notes.lua"><code>function onSongStart()
+    local t = getSongPosition()
+    -- spawnNote(time in ms, column 0-3, mustPress, noteType, holdLength in ms)
+    spawnNote(t + 1500, 1, true, 'Bonus Note')     -- a Down note for the player, 1.5 s from now
+    spawnNote(t + 1900, 2, true, '', 300)          -- an Up note with a 300 ms hold
+    spawnNote(t + 2400, 0, false)                  -- a Left note for the opponent
+end</code></pre>
+  <ul>
+    <li><code>noteType</code> can be any custom note type. Its <code>custom_notetypes/&lt;Type&gt;.lua</code> (or <code>.hx</code>) script is loaded the first time a note of that type is spawned, even if the chart never uses it. <code>goodNoteHit</code>, <code>noteMiss</code>, <code>onSpawnNote</code> and so on work on these notes like on chart notes.</li>
+    <li>Returns <code>true</code> when the note was added. It only works during a song; elsewhere it returns <code>false</code> and prints a message.</li>
+    <li>A note whose time has already passed counts as a miss, as in a chart.</li>
+  </ul>
+<pre data-file="mods/My-Mod/custom_notetypes/Bonus Note.lua"><code>function goodNoteHit(id, direction, noteType, isSustain)
+    if noteType == 'Bonus Note' then
+        addScore(500)
+    end
+end</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="keybinds">
+  <h2>Mod key binds <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Give your mod its own controls that players can rebind, instead of hard-coding keys in scripts. List them in <code>data/keybinds.json</code>.</p>
+<pre data-file="mods/My-Mod/data/keybinds.json"><code>[
+    {"id": "taunt", "name": "Taunt", "keys": ["T"], "buttons": ["RIGHT_SHOULDER"]},
+    {"id": "toggle_hud", "name": "Toggle HUD", "keys": ["H"]}
+]</code></pre>
+  <ul>
+    <li>They show up in <strong>Options &rarr; Controls</strong> under <strong>MOD CONTROLS</strong>, for keyboard and gamepad. Changes are saved with the normal controls.</li>
+    <li><code>id</code> must be lowercase and can't be a built-in control (<code>note_left</code>, <code>accept</code>...). <code>keys</code> are key names (<code>A</code>, <code>SPACE</code>, <code>SHIFT</code>, <code>NUMPADONE</code>...) and <code>buttons</code> are gamepad button names (<code>A</code>, <code>X</code>, <code>LEFT_SHOULDER</code>...). The menu shows up to two of each.</li>
+  </ul>
+  <p>Read them in any script, in songs or menus, with the usual Psych functions:</p>
+<pre data-file="mods/My-Mod/scripts/taunt.lua"><code>function onUpdate(elapsed)
+    if keyJustPressed('taunt') then
+        playAnim('boyfriend', 'hey', true)
+    end
+end</code></pre>
+  <table>
+    <thead><tr><th>Function</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>keyJustPressed(id)</code>, <code>keyPressed(id)</code>, <code>keyReleased(id)</code></td><td>The bind's state this frame (keyboard or gamepad).</td></tr>
+      <tr><td><code>getKeybind(id)</code></td><td>The key names bound to it right now, e.g. <code>{'T'}</code>. Works for built-in binds too.</td></tr>
+      <tr><td><code>keybindExists(id)</code></td><td><code>true</code> if a bind with that id exists.</td></tr>
+      <tr><td><code>addKeybind(id, name, {keys}, {buttons}?)</code></td><td>Adds a bind from a script. Prefer <code>keybinds.json</code>: a script's bind only appears in the Controls menu after the script has run.</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <!-- ============================================================ -->
@@ -417,6 +564,18 @@ end</code></pre>
       <tr><td><code>getScripted(tag)</code></td><td>sprite</td><td><em>HScript only.</em> The instance's sprite object.</td></tr>
     </tbody>
   </table>
+  <h4>Global variables, notes, key binds, debugging</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>setGlobalVar(name, value)</code> / <code>getGlobalVar(name, default?)</code></td><td>any</td><td>Values kept across screens and songs. See <a href="#global-scripts">Global scripts</a>.</td></tr>
+      <tr><td><code>globalVarExists(name)</code> / <code>removeGlobalVar(name)</code></td><td>bool</td><td>Check for or forget a global variable.</td></tr>
+      <tr><td><code>spawnNote(time, column, mustPress?, noteType?, holdLength?)</code></td><td>bool</td><td>Adds a note during a song. See <a href="#spawn-note">Notes from scripts</a>.</td></tr>
+      <tr><td><code>getKeybind(id)</code> / <code>keybindExists(id)</code> / <code>addKeybind(id, name, keys, buttons?)</code></td><td>table / bool / bool</td><td>See <a href="#keybinds">Mod key binds</a>.</td></tr>
+      <tr><td><code>getScriptErrorCount()</code></td><td>int</td><td>Different script errors so far this session.</td></tr>
+      <tr><td><code>writeToScriptLog(text)</code></td><td>bool</td><td>Adds a line to <code>vortex_script_log.txt</code>.</td></tr>
+    </tbody>
+  </table>
   <h4>Changed behaviour</h4>
   <table>
     <thead><tr><th>Function</th><th>Change</th></tr></thead>
@@ -425,6 +584,10 @@ end</code></pre>
       <tr><td><code>triggerEvent(name, v1, v2)</code></td><td>Loads <code>custom_events/name</code> the first time if it isn't in the chart.</td></tr>
       <tr><td><code>addLuaSprite(tag, false)</code></td><td>Outside songs, adds the sprite on top, since there are no characters to go behind.</td></tr>
       <tr><td><code>getModSetting</code></td><td>Its warnings work outside songs.</td></tr>
+      <tr><td><code>callOnScripts</code>, <code>setOnScripts</code>, <code>callScript</code>, <code>isRunning</code>, <code>addLuaScript</code>, <code>getRunningScripts</code>...</td><td>Work in menus and custom states, where they reach that screen's scripts. They crashed there before. Scripted classes receive <code>callOnScripts</code> calls too.</td></tr>
+      <tr><td><code>keyJustPressed</code> / <code>keyPressed</code> / <code>keyReleased</code></td><td>Work in menus, and accept mod key bind ids.</td></tr>
+      <tr><td><code>openCustomSubstate</code> and friends</td><td>Work in menus and custom states.</td></tr>
+      <tr><td>Lua runtime errors</td><td>Logged with a traceback and shown once, even without <code>luaDebugMode</code>.</td></tr>
     </tbody>
   </table>
 </section>
@@ -433,9 +596,11 @@ end</code></pre>
 <section id="troubleshooting">
   <h2>Troubleshooting</h2>
   <ul>
-    <li><strong>"My event doesn't do anything."</strong> Check that the name in <code>if name == '...'</code> matches the file name exactly, spaces included. Add <code>luaDebugMode = true</code> to see script errors.</li>
+    <li><strong>"My event doesn't do anything."</strong> Check that the name in <code>if name == '...'</code> matches the file name exactly, spaces included. Check <code>vortex_script_log.txt</code> for script errors.</li>
     <li><strong>"My custom state isn't found."</strong> The file must be in <code>states/</code> inside an <em>enabled</em> mod, and <code>switchState</code> takes the file name without <code>.lua</code>.</li>
-    <li><strong>"createScripted returns nil."</strong> The class file isn't in <code>classes/</code>, or its <code>new</code> function has an error. Use <code>luaDebugMode = true</code> in the class file.</li>
+    <li><strong>"createScripted returns nil."</strong> The class file isn't in <code>classes/</code>, or its <code>new</code> function has an error. Check <code>vortex_script_log.txt</code>.</li>
+    <li><strong>"The game is stuck on the Now Loading screen."</strong> This was a threading bug in Psych Engine 1.0's loader: two files finishing at the same moment could lose count. It's fixed in Vortex. If it still happens, send the newest file in <code>crash/</code> and <code>vortex_script_log.txt</code>.</li>
+    <li><strong>"require can't find my module."</strong> It must be in <code>lib/</code> of an enabled mod (or <code>mods/lib/</code>), and you pass the name without <code>.lua</code>: <code>require('mathutil')</code>.</li>
     <li><strong>"My song doesn't show up."</strong> Open <code>vortex_mods_log.txt</code>. It shows whether the mod is on and whether the chart and <code>Inst</code> were found.</li>
     <li><strong>"Lua functions named createInstance / callMethod behave differently."</strong> Those are Psych's Haxe-class functions and are unchanged. Vortex's scripted-class functions are named <code>createScripted</code> / <code>callScripted</code> so they don't clash.</li>
   </ul>

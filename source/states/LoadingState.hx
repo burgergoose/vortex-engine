@@ -43,7 +43,11 @@ class LoadingState extends MusicBeatState
 
 	static var originalBitmapKeys:Map<String, String> = [];
 	static var requestedBitmaps:Map<String, BitmapData> = [];
-	static var mutex:Mutex;
+	// Vortex Engine: ONE lock for everything the loader threads share. It used to be re-created for every load and
+	// set to null when loading ended, and the `loaded++` counter was not locked at all (the lock was commented out):
+	// two files finishing at the same moment lost a count, `loaded` never reached `loadMax` and the game sat on the
+	// loading screen forever - the "sometimes it gets stuck on Now Loading" bug.
+	static var mutex:Mutex = new Mutex();
 	static var threadPool:FixedThreadPool = null;
 
 	function new(target:FlxState, stopMusic:Bool)
@@ -350,20 +354,34 @@ class LoadingState extends MusicBeatState
 		FlxTransitionableState.skipNextTransIn = true;
 		if (threadPool != null) threadPool.shutdown(); // kill all workers safely
 		threadPool = null;
-		mutex = null;
 	}
 
 	public static function checkLoaded():Bool
 	{
+		// Vortex Engine: loader threads add to these maps while this runs on the main thread; take them under the lock
+		// (reading a map while another thread writes to it can corrupt it), then upload the pictures outside of it.
+		var keys:Array<String> = [];
+		var bitmaps:Array<BitmapData> = [];
+		var originals:Array<String> = [];
+		mutex.acquire();
 		for (key => bitmap in requestedBitmaps)
 		{
-			if (bitmap != null && Paths.cacheBitmap(originalBitmapKeys.get(key), bitmap) != null) {} //trace('finished preloading image $key');
-			else trace('failed to cache image $key');
+			keys.push(key);
+			bitmaps.push(bitmap);
+			originals.push(originalBitmapKeys.get(key));
 		}
 		requestedBitmaps.clear();
 		originalBitmapKeys.clear();
+		var done:Bool = (loaded >= loadMax && initialThreadCompleted);
+		mutex.release();
+
+		for (i in 0...keys.length)
+		{
+			if (bitmaps[i] != null && Paths.cacheBitmap(originals[i], bitmaps[i]) != null) {} //trace('finished preloading image $key');
+			else trace('failed to cache image ${keys[i]}');
+		}
 		// trace('we checked if loaded');
-		return (loaded >= loadMax && initialThreadCompleted);
+		return done && keys.length == 0; // pictures that arrived just now get cached first, next frame we can go
 	}
 
 	public static function loadNextDirectory()
@@ -428,7 +446,9 @@ class LoadingState extends MusicBeatState
 		#else
 		var threadCount:Int = 1;
 		#end
-		threadPool = new FixedThreadPool(threadCount);
+		// Vortex Engine: reuse the running pool. A new pool was made several times per load and the old ones were never
+		// shut down, so every song load leaked a full set of idle threads.
+		if (threadPool == null) threadPool = new FixedThreadPool(threadCount);
 	}
 
 	public static function prepareToSong()
@@ -455,15 +475,30 @@ class LoadingState extends MusicBeatState
 		initialThreadCompleted = false;
 		var threadsCompleted:Int = 0;
 		var threadsMax:Int = 0;
-		function completedThread()
+		// Vortex Engine: the character threads finish on other threads. Counting them without a lock could miss the
+		// last one (then the loading screen never ended) or start the file loading twice. Now the file loading starts
+		// exactly once, after the last character thread AND after all of them were scheduled.
+		var schedulingDone:Bool = false;
+		var filesStarted:Bool = false;
+		function startFilesIfReady()
 		{
-			threadsCompleted++;
-			if(threadsCompleted == threadsMax)
+			mutex.acquire();
+			var go:Bool = (!filesStarted && schedulingDone && threadsCompleted >= threadsMax);
+			if (go) filesStarted = true;
+			mutex.release();
+			if (go)
 			{
 				clearInvalids();
 				startThreads();
 				initialThreadCompleted = true;
 			}
+		}
+		function completedThread()
+		{
+			mutex.acquire();
+			threadsCompleted++;
+			mutex.release();
+			startFilesIfReady();
 		}
 
 		var song:SwagSong = PlayState.SONG;
@@ -602,12 +637,10 @@ class LoadingState extends MusicBeatState
 				});
 			}
 
-			if(threadsCompleted == threadsMax)
-			{
-				clearInvalids();
-				startThreads();
-				initialThreadCompleted = true;
-			}
+			mutex.acquire();
+			schedulingDone = true;
+			mutex.release();
+			startFilesIfReady();
 			return true;
 		}, isIntrusive))
 		.onError((err:Dynamic) -> {
@@ -675,9 +708,10 @@ class LoadingState extends MusicBeatState
 
 	public static function startThreads()
 	{
-		mutex = new Mutex();
+		mutex.acquire();
 		loadMax = imagesToPrepare.length + soundsToPrepare.length + musicToPrepare.length + songsToPrepare.length;
 		loaded = 0;
+		mutex.release();
 
 		//then start threads
 		_threadFunc();
@@ -717,9 +751,9 @@ class LoadingState extends MusicBeatState
 			catch(e:Dynamic) {
 				trace('ERROR! fail on preloading $traceData: $e');
 			}
-			// mutex.acquire();
+			mutex.acquire();
 			loaded++;
-			// mutex.release();
+			mutex.release();
 		});
 	}
 
@@ -746,10 +780,12 @@ class LoadingState extends MusicBeatState
 			if(!isAnimateAtlas)
 			{
 				var split:Array<String> = img.split(',');
+				mutex.acquire(); // Vortex Engine: several character threads add to these lists at once
 				for (file in split)
 				{
 					imagesToPrepare.push(file.trim());
 				}
+				mutex.release();
 			}
 			#if flxanimate
 			else
@@ -762,7 +798,9 @@ class LoadingState extends MusicBeatState
 					if(Paths.fileExists('images/$img/spritemap$st.png', IMAGE))
 					{
 						//trace('found Sprite PNG');
+						mutex.acquire();
 						imagesToPrepare.push('$img/spritemap$st');
+						mutex.release();
 						break;
 					}
 				}
@@ -771,7 +809,9 @@ class LoadingState extends MusicBeatState
 	
 			if (prefixVocals != null && character.vocals_file != null && character.vocals_file.length > 0)
 			{
+				mutex.acquire();
 				songsToPrepare.push(prefixVocals + "-" + character.vocals_file);
+				mutex.release();
 				if(char == PlayState.SONG.player1) dontPreloadDefaultVoices = true;
 			}
 		}

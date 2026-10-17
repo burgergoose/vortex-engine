@@ -16,10 +16,29 @@ class CustomSubstate extends MusicBeatSubstate
 		Lua_helper.add_callback(lua, "insertToCustomSubstate", insertToCustomSubstate);
 	}
 	#end
-	
+
+	// Vortex Engine: custom substates used to work in songs only (PlayState.instance was null anywhere else and
+	// the game crashed). They now open on top of any menu / custom state too, and that state's scripts
+	// (states/<State>.lua / .hx) get the onCustomSubstate... callbacks.
+	static function host():MusicBeatState
+		return (PlayState.instance != null) ? PlayState.instance : Std.downcast(FlxG.state, MusicBeatState);
+
+	static function callOnHost(func:String, args:Array<Dynamic>)
+	{
+		if(PlayState.instance != null) PlayState.instance.callOnScripts(func, args);
+		else if(host() != null) host().callOnStateScripts(func, args);
+	}
+
+	static function setOnHostHScript(variable:String, value:Dynamic)
+	{
+		if(PlayState.instance != null) PlayState.instance.setOnHScript(variable, value);
+		else if(host() != null) host().setOnStateScripts(variable, value, null, false, true);
+	}
+
 	public static function openCustomSubstate(name:String, ?pauseGame:Bool = false)
 	{
-		if(pauseGame)
+		if(host() == null) return;
+		if(pauseGame && PlayState.instance != null)
 		{
 			FlxG.camera.followLerp = 0;
 			PlayState.instance.persistentUpdate = false;
@@ -30,14 +49,14 @@ class CustomSubstate extends MusicBeatSubstate
 				PlayState.instance.vocals.pause();
 			}
 		}
-		PlayState.instance.openSubState(new CustomSubstate(name));
+		host().openSubState(new CustomSubstate(name));
 	}
 
 	public static function closeCustomSubstate()
 	{
 		if(instance != null)
 		{
-			PlayState.instance.closeSubState();
+			if(host() != null) host().closeSubState();
 			return true;
 		}
 		return false;
@@ -62,37 +81,37 @@ class CustomSubstate extends MusicBeatSubstate
 	override function create()
 	{
 		instance = this;
-		PlayState.instance.setOnHScript('customSubstate', instance);
+		setOnHostHScript('customSubstate', instance);
 
 
-		PlayState.instance.callOnScripts('onCustomSubstateCreate', [name]);
+		callOnHost('onCustomSubstateCreate', [name]);
 		super.create();
-		PlayState.instance.callOnScripts('onCustomSubstateCreatePost', [name]);
+		callOnHost('onCustomSubstateCreatePost', [name]);
 	}
-	
+
 	public function new(name:String)
 	{
 		CustomSubstate.name = name;
-		PlayState.instance.setOnHScript('customSubstateName', name);
+		setOnHostHScript('customSubstateName', name);
 		super();
 		cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
 	}
-	
+
 	override function update(elapsed:Float)
 	{
-		PlayState.instance.callOnScripts('onCustomSubstateUpdate', [name, elapsed]);
+		callOnHost('onCustomSubstateUpdate', [name, elapsed]);
 		super.update(elapsed);
-		PlayState.instance.callOnScripts('onCustomSubstateUpdatePost', [name, elapsed]);
+		callOnHost('onCustomSubstateUpdatePost', [name, elapsed]);
 	}
 
 	override function destroy()
 	{
-		PlayState.instance.callOnScripts('onCustomSubstateDestroy', [name]);
+		callOnHost('onCustomSubstateDestroy', [name]);
 		instance = null;
 		name = 'unnamed';
 
-		PlayState.instance.setOnHScript('customSubstate', null);
-		PlayState.instance.setOnHScript('customSubstateName', name);
+		setOnHostHScript('customSubstate', null);
+		setOnHostHScript('customSubstateName', name);
 		super.destroy();
 	}
 }

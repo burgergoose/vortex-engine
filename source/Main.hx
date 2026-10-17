@@ -187,8 +187,9 @@ class Main extends Sprite
 				msgInfo += '${newPos.lineNumber}:';
 			}
 			msgInfo += ' $x';
-			if (PlayState.instance != null)
-				PlayState.instance.addTextToDebug('ERROR: $msgInfo', FlxColor.RED);
+			// Vortex Engine: logged to vortex_script_log.txt, and shown in menus / custom states too (was songs only)
+			if (psychlua.ScriptLog.error('HScript: ${newPos.fileName}', '$msgInfo'))
+				psychlua.LuaUtils.debugPrint('ERROR: $msgInfo', FlxColor.RED);
 		}
 		Iris.fatal = function(x, ?pos:haxe.PosInfos) {
 			Iris.logLevel(FATAL, x, pos);
@@ -205,8 +206,8 @@ class Main extends Sprite
 				msgInfo += '${newPos.lineNumber}:';
 			}
 			msgInfo += ' $x';
-			if (PlayState.instance != null)
-				PlayState.instance.addTextToDebug('FATAL: $msgInfo', 0xFFBB0000);
+			psychlua.ScriptLog.error('HScript: ${newPos.fileName}', 'FATAL: $msgInfo');
+			psychlua.LuaUtils.debugPrint('FATAL: $msgInfo', 0xFFBB0000);
 		}
 		checkpoint("HScript callbacks wired");
 		#end

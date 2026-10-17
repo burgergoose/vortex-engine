@@ -221,42 +221,51 @@ class FunkinLua {
 		//
 		Lua_helper.add_callback(lua, "getRunningScripts", function() {
 			var runningScripts:Array<String> = [];
-			for (script in game.luaArray)
+			// Vortex Engine: outside a song there is no PlayState (this used to crash in menus / custom states)
+			for (script in (PlayState.instance != null ? PlayState.instance.luaArray : activeScripts))
 				runningScripts.push(script.scriptName);
 
 			return runningScripts;
 		});
 
+		// Vortex Engine: these used the song (PlayState) only and crashed in menus / custom states. With no song
+		// running they now reach the current state's scripts (states/<State>.lua / .hx) instead.
 		addLocalCallback("setOnScripts", function(varName:String, arg:Dynamic, ?ignoreSelf:Bool = false, ?exclusions:Array<String> = null) {
 			if(exclusions == null) exclusions = [];
 			if(ignoreSelf && !exclusions.contains(scriptName)) exclusions.push(scriptName);
-			game.setOnScripts(varName, arg, exclusions);
+			if(PlayState.instance != null) PlayState.instance.setOnScripts(varName, arg, exclusions);
+			else if(stateHost() != null) stateHost().setOnStateScripts(varName, arg, exclusions);
 		});
 		addLocalCallback("setOnHScript", function(varName:String, arg:Dynamic, ?ignoreSelf:Bool = false, ?exclusions:Array<String> = null) {
 			if(exclusions == null) exclusions = [];
 			if(ignoreSelf && !exclusions.contains(scriptName)) exclusions.push(scriptName);
-			game.setOnHScript(varName, arg, exclusions);
+			if(PlayState.instance != null) PlayState.instance.setOnHScript(varName, arg, exclusions);
+			else if(stateHost() != null) stateHost().setOnStateScripts(varName, arg, exclusions, false, true);
 		});
 		addLocalCallback("setOnLuas", function(varName:String, arg:Dynamic, ?ignoreSelf:Bool = false, ?exclusions:Array<String> = null) {
 			if(exclusions == null) exclusions = [];
 			if(ignoreSelf && !exclusions.contains(scriptName)) exclusions.push(scriptName);
-			game.setOnLuas(varName, arg, exclusions);
+			if(PlayState.instance != null) PlayState.instance.setOnLuas(varName, arg, exclusions);
+			else if(stateHost() != null) stateHost().setOnStateScripts(varName, arg, exclusions, true, false);
 		});
 
 		addLocalCallback("callOnScripts", function(funcName:String, ?args:Array<Dynamic> = null, ?ignoreStops=false, ?ignoreSelf:Bool = true, ?excludeScripts:Array<String> = null, ?excludeValues:Array<Dynamic> = null) {
 			if(excludeScripts == null) excludeScripts = [];
 			if(ignoreSelf && !excludeScripts.contains(scriptName)) excludeScripts.push(scriptName);
-			return game.callOnScripts(funcName, args, ignoreStops, excludeScripts, excludeValues);
+			if(PlayState.instance != null) return PlayState.instance.callOnScripts(funcName, args, ignoreStops, excludeScripts, excludeValues);
+			return (stateHost() != null) ? stateHost().callOnStateScripts(funcName, args, excludeScripts) : LuaUtils.Function_Continue;
 		});
 		addLocalCallback("callOnLuas", function(funcName:String, ?args:Array<Dynamic> = null, ?ignoreStops=false, ?ignoreSelf:Bool = true, ?excludeScripts:Array<String> = null, ?excludeValues:Array<Dynamic> = null) {
 			if(excludeScripts == null) excludeScripts = [];
 			if(ignoreSelf && !excludeScripts.contains(scriptName)) excludeScripts.push(scriptName);
-			return game.callOnLuas(funcName, args, ignoreStops, excludeScripts, excludeValues);
+			if(PlayState.instance != null) return PlayState.instance.callOnLuas(funcName, args, ignoreStops, excludeScripts, excludeValues);
+			return (stateHost() != null) ? stateHost().callOnStateScripts(funcName, args, excludeScripts, true, false) : LuaUtils.Function_Continue;
 		});
 		addLocalCallback("callOnHScript", function(funcName:String, ?args:Array<Dynamic> = null, ?ignoreStops=false, ?ignoreSelf:Bool = true, ?excludeScripts:Array<String> = null, ?excludeValues:Array<Dynamic> = null) {
 			if(excludeScripts == null) excludeScripts = [];
 			if(ignoreSelf && !excludeScripts.contains(scriptName)) excludeScripts.push(scriptName);
-			return game.callOnHScript(funcName, args, ignoreStops, excludeScripts, excludeValues);
+			if(PlayState.instance != null) return PlayState.instance.callOnHScript(funcName, args, ignoreStops, excludeScripts, excludeValues);
+			return (stateHost() != null) ? stateHost().callOnStateScripts(funcName, args, excludeScripts, false, true) : LuaUtils.Function_Continue;
 		});
 
 		Lua_helper.add_callback(lua, "callScript", function(luaFile:String, funcName:String, ?args:Array<Dynamic> = null) {
@@ -266,7 +275,7 @@ class FunkinLua {
 
 			var luaPath:String = findScript(luaFile);
 			if(luaPath != null)
-				for (luaInstance in game.luaArray)
+				for (luaInstance in runningLuas())
 					if(luaInstance.scriptName == luaPath)
 						return luaInstance.call(funcName, args);
 
@@ -276,7 +285,7 @@ class FunkinLua {
 			var luaPath:String = findScript(scriptFile);
 			if(luaPath != null)
 			{
-				for (luaInstance in game.luaArray)
+				for (luaInstance in runningLuas())
 					if(luaInstance.scriptName == luaPath)
 						return true;
 			}
@@ -285,7 +294,7 @@ class FunkinLua {
 			var hscriptPath:String = findScript(scriptFile, '.hx');
 			if(hscriptPath != null)
 			{
-				for (hscriptInstance in game.hscriptArray)
+				for (hscriptInstance in runningHScripts())
 					if(hscriptInstance.origin == hscriptPath)
 						return true;
 			}
@@ -306,14 +315,15 @@ class FunkinLua {
 			if(luaPath != null)
 			{
 				if(!ignoreAlreadyRunning)
-					for (luaInstance in game.luaArray)
+					for (luaInstance in runningLuas())
 						if(luaInstance.scriptName == luaPath)
 						{
 							luaTrace('addLuaScript: The script "' + luaPath + '" is already running!');
 							return;
 						}
 
-				new FunkinLua(luaPath);
+				var added:FunkinLua = new FunkinLua(luaPath, PlayState.instance != null);
+				if(PlayState.instance == null && stateHost() != null && added.lua != null) stateHost().stateLuaArray.push(added); // Vortex Engine
 				return;
 			}
 			luaTrace("addLuaScript: Script doesn't exist!", false, false, FlxColor.RED);
@@ -324,7 +334,7 @@ class FunkinLua {
 			if(scriptPath != null)
 			{
 				if(!ignoreAlreadyRunning)
-					for (script in game.hscriptArray)
+					for (script in runningHScripts())
 						if(script.origin == scriptPath)
 						{
 							luaTrace('addHScript: The script "' + scriptPath + '" is already running!');
@@ -344,7 +354,7 @@ class FunkinLua {
 			if(luaPath != null)
 			{
 				var foundAny:Bool = false;
-				for (luaInstance in game.luaArray)
+				for (luaInstance in runningLuas())
 				{
 					if(luaInstance.scriptName == luaPath)
 					{
@@ -365,7 +375,7 @@ class FunkinLua {
 			if(scriptPath != null)
 			{
 				var foundAny:Bool = false;
-				for (script in game.hscriptArray)
+				for (script in runningHScripts())
 				{
 					if(script.origin == scriptPath)
 					{
@@ -526,14 +536,14 @@ class FunkinLua {
 							loopDelay: myOptions.loopDelay,
 	
 							onUpdate: function(twn:FlxTween) {
-								if(myOptions.onUpdate != null) game.callOnLuas(myOptions.onUpdate, [originalTag, vars]);
+								if(myOptions.onUpdate != null) LuaUtils.callOnLuas(myOptions.onUpdate, [originalTag, vars]);
 							},
 							onStart: function(twn:FlxTween) {
-								if(myOptions.onStart != null) game.callOnLuas(myOptions.onStart, [originalTag, vars]);
+								if(myOptions.onStart != null) LuaUtils.callOnLuas(myOptions.onStart, [originalTag, vars]);
 							},
 							onComplete: function(twn:FlxTween) {
 								if(twn.type == FlxTweenType.ONESHOT || twn.type == FlxTweenType.BACKWARD) variables.remove(tag);
-								if(myOptions.onComplete != null) game.callOnLuas(myOptions.onComplete, [originalTag, vars]);
+								if(myOptions.onComplete != null) LuaUtils.callOnLuas(myOptions.onComplete, [originalTag, vars]);
 							}
 						} : null));
 						return tag;
@@ -545,13 +555,13 @@ class FunkinLua {
 						loopDelay: myOptions.loopDelay,
 
 						onUpdate: function(twn:FlxTween) {
-							if(myOptions.onUpdate != null) game.callOnLuas(myOptions.onUpdate, [null, vars]);
+							if(myOptions.onUpdate != null) LuaUtils.callOnLuas(myOptions.onUpdate, [null, vars]);
 						},
 						onStart: function(twn:FlxTween) {
-							if(myOptions.onStart != null) game.callOnLuas(myOptions.onStart, [null, vars]);
+							if(myOptions.onStart != null) LuaUtils.callOnLuas(myOptions.onStart, [null, vars]);
 						},
 						onComplete: function(twn:FlxTween) {
-							if(myOptions.onComplete != null) game.callOnLuas(myOptions.onComplete, [null, vars]);
+							if(myOptions.onComplete != null) LuaUtils.callOnLuas(myOptions.onComplete, [null, vars]);
 						}
 					} : null);
 				}
@@ -1607,6 +1617,9 @@ class FunkinLua {
 				Lua_helper.add_callback(lua, name, func);
 		}
 
+		VortexFunctions.implement(this); // Vortex Engine: extra modding API (see VortexFunctions.hx)
+		setupRequirePaths();
+
 		try{
 			var isString:Bool = !FileSystem.exists(scriptName);
 			var result:Dynamic = null;
@@ -1618,6 +1631,7 @@ class FunkinLua {
 			var resultStr:String = Lua.tostring(lua, result);
 			if(resultStr != null && result != 0) {
 				trace(resultStr);
+				ScriptLog.error('Lua: $scriptName (loading)', resultStr); // Vortex Engine
 				#if windows
 				lime.app.Application.current.window.alert(resultStr, 'Error on lua script!');
 				#else
@@ -1658,13 +1672,18 @@ class FunkinLua {
 				return LuaUtils.Function_Continue;
 			}
 
+			// Vortex Engine: run the function with debug.traceback as the error handler, so an error tells you the
+			// file, the line and the whole call stack instead of just the message.
+			var errFunc:Int = pushTraceback();
+
 			for (arg in args) Convert.toLua(lua, arg);
-			var status:Int = Lua.pcall(lua, args.length, 1, 0);
+			var status:Int = Lua.pcall(lua, args.length, 1, errFunc);
 
 			// Checks if it's not successful, then show a error.
 			if (status != Lua.LUA_OK) {
 				var error:String = getErrorMessage(status);
-				luaTrace("ERROR (" + func + "): " + error, false, false, FlxColor.RED);
+				if(errFunc != 0) Lua.pop(lua, 1);
+				reportError(func, error);
 				return LuaUtils.Function_Continue;
 			}
 
@@ -1673,6 +1692,7 @@ class FunkinLua {
 			if (result == null) result = LuaUtils.Function_Continue;
 
 			Lua.pop(lua, 1);
+			if(errFunc != 0) Lua.pop(lua, 1);
 			if(closed) stop();
 			return result;
 		}
@@ -1680,6 +1700,93 @@ class FunkinLua {
 			trace(e);
 		}
 		return LuaUtils.Function_Continue;
+	}
+
+	// Vortex Engine: the running scripts of whatever is active - the song, or the current menu / custom state.
+	static function stateHost():MusicBeatState
+		return (PlayState.instance == null) ? Std.downcast(FlxG.state, MusicBeatState) : null;
+
+	static function runningLuas():Array<FunkinLua>
+	{
+		if(PlayState.instance != null) return PlayState.instance.luaArray;
+		var host = stateHost();
+		return (host != null) ? host.stateLuaArray : [];
+	}
+
+	#if HSCRIPT_ALLOWED
+	static function runningHScripts():Array<HScript>
+	{
+		if(PlayState.instance != null) return PlayState.instance.hscriptArray;
+		var host = stateHost();
+		return (host != null) ? host.stateHScripts : [];
+	}
+	#end
+
+	/**
+	 * Vortex Engine: lets scripts share code with Lua's own `require`. `require('utils')` looks for, in order:
+	 *   mods/<this mod>/lib/utils.lua (or lib/utils/init.lua), mods/lib/utils.lua, the script's own folder,
+	 *   then Lua's normal places. Modules are loaded once per script (Lua caches them in package.loaded).
+	 */
+	function setupRequirePaths()
+	{
+		var paths:Array<String> = [];
+		var dir:String = haxe.io.Path.directory(scriptName.replace('\\', '/'));
+		#if MODS_ALLOWED
+		var mod:String = modFolder;
+		if(mod == null) // state scripts / classes can come from any enabled mod
+		{
+			var parts:Array<String> = scriptName.replace('\\', '/').split('/');
+			if(parts.length > 2 && parts[0] + '/' == Paths.mods()) mod = parts[1];
+		}
+		if(mod != null && mod.length > 0) paths = paths.concat([Paths.mods('$mod/lib/?.lua'), Paths.mods('$mod/lib/?/init.lua')]);
+		paths = paths.concat([Paths.mods('lib/?.lua'), Paths.mods('lib/?/init.lua')]);
+		#end
+		if(dir != null && dir.length > 0 && FileSystem.exists(scriptName)) paths.push('$dir/?.lua');
+		paths.push(Paths.getSharedPath('lib/?.lua'));
+
+		var luaList:String = [for (p in paths) "'" + p.replace('\\', '/').replace("'", "\\'") + "'"].join(', ');
+		LuaL.dostring(lua, "package.path = table.concat({" + luaList + "}, ';') .. ';' .. package.path");
+		Lua.settop(lua, 0);
+	}
+
+	/** Vortex Engine: puts debug.traceback just below the function on top of the stack. Returns its stack index (0 = none). **/
+	function pushTraceback():Int
+	{
+		Lua.getglobal(lua, 'debug');
+		if(Lua.type(lua, -1) == Lua.LUA_TTABLE)
+		{
+			Lua.getfield(lua, -1, 'traceback');
+			Lua.remove(lua, -2);
+		}
+		if(Lua.type(lua, -1) != Lua.LUA_TFUNCTION)
+		{
+			Lua.pop(lua, 1);
+			return 0;
+		}
+		Lua.insert(lua, -2); // [..., traceback, function]
+		return Lua.gettop(lua) - 1;
+	}
+
+	/**
+	 * Vortex Engine: a runtime error is logged to vortex_script_log.txt (with the traceback) and shown on screen once.
+	 * Psych only ever showed it with luaDebugMode on, so most broken scripts failed silently. With luaDebugMode on,
+	 * every occurrence is still printed like before.
+	 */
+	public function reportError(func:String, error:String)
+	{
+		if(error == null) error = 'Unknown Error';
+		var lines:Array<String> = error.split('\n');
+		var message:String = lines.shift();
+		var traceback:String = lines.join('\n');
+		var isNew:Bool = ScriptLog.error('Lua: $scriptName ($func)', message, traceback);
+		if(getBool('luaDebugMode')) luaTrace('ERROR ($func): $message', true, false, FlxColor.RED);
+		else if(isNew) LuaUtils.debugPrint('Lua error in ${shortName()} ($func): $message  [details: ${ScriptLog.FILE}]', FlxColor.RED);
+	}
+
+	public function shortName():String
+	{
+		var parts:Array<String> = scriptName.replace('\\', '/').split('/');
+		return parts.length > 2 ? parts.slice(parts.length - 2).join('/') : scriptName;
 	}
 
 	public function set(variable:String, data:Dynamic) {

@@ -15,21 +15,19 @@
 
 	<!-- NOTE TO SELF: DISABLE THIS IF ISSUES ARE FOUND -->
 	<haxedef name="LINC_LUA_RELATIVE_DYNAMIC_LIB"/> <!-- stable luas PUT AFTER FIRST LINE WITH APP NAME AND ETC -->
-	<!-- Vortex Engine: tells lime and hxcpp this is a MinGW build, not MSVC. -->
-	<haxedef name="HXCPP_MINGW" if="windows" />
-	<haxedef name="no_shared_libs" if="windows" />
+	<!-- Vortex Engine: the old Linux -> Windows MinGW cross-compile (32-bit, patched lime.ndll) is now opt-in with
+	     `lime build windows -Dvortex_mingw`. Without it, Windows builds use Visual Studio (MSVC) and the normal 64-bit
+	     libraries, like stock Psych Engine. Forcing these unconditionally broke every normal build, including all
+	     the GitHub Actions builds (Linux and Mac were forced to 32-bit too). -->
+	<section if="vortex_mingw">
+		<haxedef name="HXCPP_MINGW" if="windows" />
+		<haxedef name="no_shared_libs" if="windows" />
+		<architecture exclude="x64" />
+		<architecture name="x86" />
+	</section>
 
 	<!--The flixel preloader is not accurate in Chrome. You can use it regularly if you embed the swf into a html file
 		or you can set the actual size of your file manually at "FlxPreloaderBase-onUpdate-bytesTotal"-->
-	<!-- Vortex Engine build note: this environment's cross-compiled lime.ndll is 32-bit
-	     (built via MinGW on a Linux host; see project/lib native rebuild patches). Forcing
-	     x86 here (and explicitly excluding x64, which lime otherwise defaults to matching a
-	     64-bit host) keeps `lime build windows` consistent with what's actually available.
-	     A 32-bit .exe runs fine on any 64-bit Windows via WOW64, so this is not a compatibility
-	     downgrade for players, just a build-environment fact. Remove these two lines if you
-	     later rebuild lime.ndll as 64-bit yourself. -->
-	<architecture exclude="x64" />
-	<architecture name="x86" />
 
 	<!-- <app preloader="Preloader" resizable="true" /> -->
 	<app preloader="flixel.system.FlxPreloader" />

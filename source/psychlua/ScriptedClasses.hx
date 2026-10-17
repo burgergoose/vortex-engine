@@ -165,6 +165,35 @@ class ScriptedClasses
 		}
 	}
 
+	/**
+	 * Vortex Engine: sends any script callback (onBeatHit, goodNoteHit, onEvent, onKeyPress, custom ones from
+	 * callOnLuas / callOnScripts...) to every instance whose class defines that function, with `self` first.
+	 * `lua` / `hscript` pick which kind of class gets it (song callbacks pass different arguments to each).
+	 */
+	public static function dispatch(func:String, args:Array<Dynamic>, lua:Bool = true, hscript:Bool = true)
+	{
+		if(order.length < 1 || func == null) return;
+		for (tag in order.copy())
+		{
+			var inst = instances.get(tag);
+			if(inst == null || !alive(inst)) continue;
+			if(!(inst.cls.isLua ? lua : hscript) || !inst.cls.hasCached(func)) continue;
+			try { inst.cls.callFor(inst, func, args != null ? args : []); }
+			catch(e:Dynamic) { ScriptLog.error('Scripted class "${inst.cls.name}" ($func)', Std.string(e)); }
+		}
+	}
+
+	/** Vortex Engine: setOnScripts / setOnLuas (curBeat, crochet, mustHitSection...) reach class scripts too. **/
+	public static function setVar(variable:String, value:Dynamic, lua:Bool = true, hscript:Bool = true)
+	{
+		if(order.length < 1) return;
+		for (cls in classes)
+		{
+			if(cls.isLua ? !lua : !hscript) continue;
+			cls.set(variable, value);
+		}
+	}
+
 	/** Called when the state is destroyed: the scripts stop, the sprites go with the state. **/
 	public static function clear()
 	{
@@ -187,12 +216,15 @@ class ClassScript
 	public var hasUpdate:Bool = true;
 	public var hasBeat:Bool = true;
 	public var hasStep:Bool = true;
+	public var isLua:Bool = false;
 	#if LUA_ALLOWED var lua:FunkinLua; #end
 	#if HSCRIPT_ALLOWED var hx:HScript; #end
+	var hasCache:Map<String, Bool> = new Map<String, Bool>();
 
 	public function new(name:String, lua:Dynamic, hx:Dynamic)
 	{
 		this.name = name;
+		isLua = (lua != null);
 		#if LUA_ALLOWED this.lua = lua; #end
 		#if HSCRIPT_ALLOWED this.hx = hx; #end
 		// skip per-frame calls a class doesn't use
@@ -218,6 +250,14 @@ class ClassScript
 		return false;
 	}
 
+	/** has(), remembered per function name (dispatch() asks for every callback, many times a frame). **/
+	public function hasCached(func:String):Bool
+	{
+		var v:Null<Bool> = hasCache.get(func);
+		if(v == null) hasCache.set(func, v = has(func));
+		return v;
+	}
+
 	public function callFor(inst:ScriptedInstance, func:String, args:Array<Dynamic>):Dynamic
 	{
 		#if LUA_ALLOWED
@@ -238,6 +278,12 @@ class ClassScript
 		}
 		#end
 		return null;
+	}
+
+	public function set(variable:String, value:Dynamic)
+	{
+		#if LUA_ALLOWED if(lua != null && !lua.closed) lua.set(variable, value); #end
+		#if HSCRIPT_ALLOWED if(hx != null) hx.set(variable, value); #end
 	}
 
 	public function dispose()

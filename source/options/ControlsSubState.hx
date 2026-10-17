@@ -68,6 +68,16 @@ class ControlsSubState extends MusicBeatSubstate
 		DiscordClient.changePresence("Controls Menu", null);
 		#end
 
+		// Vortex Engine: key binds added by mods (data/keybinds.json or addKeybind() in a script)
+		backend.ModKeybinds.reload();
+		if(backend.ModKeybinds.list.length > 0)
+		{
+			options.push([true]);
+			options.push([true, 'MOD CONTROLS']);
+			for (bind in backend.ModKeybinds.list)
+				options.push([true, bind.name, bind.id, bind.name]);
+		}
+
 		options.push([true]);
 		options.push([true]);
 		options.push([true, defaultKey]);

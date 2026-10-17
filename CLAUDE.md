@@ -1,6 +1,6 @@
 # Vortex Engine — handoff notes for Claude Code
 
-Vortex Engine is a private, non-commercial fork of **Psych Engine 1.0** (Friday Night Funkin'), built by editing the
+Vortex Engine is a **public**, non-commercial fork of **Psych Engine 1.0** (Friday Night Funkin'), built by editing the
 source. These notes carry over everything from the earlier claude.ai session that built most of it. Read them before
 changing anything.
 
@@ -15,16 +15,21 @@ changing anything.
 - Mark Vortex changes in code with a short `// Vortex Engine:` comment explaining why.
 - The FPS Plus "little buddies" art (chart editor) is from ThatRozebudDude's FPS Plus — free for **non-commercial use
   only**; credit is in `assets/shared/images/editors/buddies/CREDITS.txt` and on screen.
+- The engine is going public: never commit the owner's own mod, test mods, logs or anything from their machine.
+  Only the bundled `example_mods/` ships with builds.
 - Repo: https://github.com/burgergoose/vortex-engine (branch `main`). Docs site source is `docs/index.html` +
   `docs/style.css` (GitHub Pages: Settings → Pages → branch `main`, folder `/docs`).
 
 ## Build
-- Toolchain used so far: Haxe 4.3.x, HaxeFlixel 5.6.1, OpenFL 9.3.3, Lime 8.1.2, hxcpp 4.3.x, hscript-iris, linc_luajit.
-  Library install scripts are in `setup/` (`windows.bat` installs the haxelibs); standard Psych build steps are in `docs/BUILDING.md`.
+- Toolchain: Haxe 4.3.x, HaxeFlixel 5.6.1, OpenFL 9.3.3, Lime 8.1.2, hxcpp 4.3.x, hscript-iris 1.1.3,
+  **hxdiscord_rpc 1.3.0** (1.2.4 doesn't compile with this source), **linc_luajit from git** (superpowers04 commit in
+  `setup/windows.bat`; the haxelib release lacks `sendErrorsToLua`), flxanimate from git. Install with `setup/windows.bat`.
 - On Windows: install Haxe + Visual Studio C++ build tools (see `docs/BUILDING.md`), install the libs, then
   `lime test windows` (debug) or `lime build windows -release`. Output: `export/release/windows/bin/`.
-- The earlier session cross-compiled **32-bit Windows from Linux with MinGW** using locally patched haxelibs; that setup
-  doesn't exist on a normal Windows PC and isn't needed there.
+- Windows builds use Visual Studio 2022 C++ Build Tools (MSVC, 64-bit) like stock Psych. The old 32-bit MinGW
+  cross-compile settings are opt-in with `-Dvortex_mingw` (Project.xml); they used to be forced and broke every
+  normal build, including all GitHub Actions builds.
+- Quick compile check without C++: `lime display windows > check.hxml` then `haxe check.hxml` (it has `--no-output`).
 - Release package = the `bin` folder zipped as `VortexEngine/` (players extract and double-click `VortexEngine.exe`).
   Before zipping remove `crash/`, `vortex_boot_log.txt`, `vortex_mods_log.txt`, any test mods, and empty `modsList.txt`.
 
@@ -42,13 +47,21 @@ changing anything.
 | Chart editor | VORTEX theme (`ChartingState.changeTheme`), little buddies `objects/ChartBuddies.hx` |
 | Scripting | Lua outside songs (`psychlua/FunkinLua.hx` registry `activeScripts`, `CallbackHandler.hx`, `LuaUtils.debugPrint/callOnLuas`); state scripts + custom states hosted in `backend/MusicBeatState.hx` (`loadStateScripts`, `callOnStateScripts`); `states/ScriptedState.hx` (`switchState`); `psychlua/ScriptedClasses.hx` (`createScripted`, `callScripted`, `destroyScripted`, …); `Mods.allModFoldersWith/findInAnyMod` (states/ and classes/ are searched in every enabled mod) |
 
+| Modding API v2 | `psychlua/VortexFunctions.hx` (setGlobalVar/getGlobalVar, addKeybind/getKeybind, spawnNote, getScriptErrorCount, writeToScriptLog — mirrored in `HScript.preset`), `FunkinLua.setupRequirePaths` (`require` from `mods/<mod>/lib/`), `states/Global.lua` loaded by `MusicBeatState.loadStateScripts`, `ScriptedClasses.dispatch/setVar` (classes get every callback + variable), script-to-script functions and `CustomSubstate` working outside songs |
+| Script errors | `psychlua/ScriptLog.hx` → `vortex_script_log.txt` (once per unique error, Lua traceback via `FunkinLua.pushTraceback`), shown on screen once; HScript errors via `Main.hx` Iris handlers; count in the F3 overlay |
+| Mod key binds | `backend/ModKeybinds.hx` (`data/keybinds.json` in any enabled mod), "MOD CONTROLS" in `ControlsSubState`; `keyJustPressed` etc. use `Controls.instance` so they work in menus |
+| Runtime notes | `PlayState.addNoteAtRuntime` / `ensureNoteTypeScript` (spawnNote; loads the note type script on first use) |
+| Performance / stability | `generateSong` ghost-note check hashed (was O(n²); `chartBuildMs` shown in F3), note loop `null` slot no longer loops forever, `LoadingState` race fixes (unlocked `loaded++` / `threadsCompleted++` caused the random "stuck on Now Loading", shared lists locked, thread pool reused instead of leaked) |
+
 Psych already has Lua functions named `createInstance` and `callMethod` (Haxe reflection) — never reuse those names.
 
 ## Testing notes
+- `tests/VortexSelfTest` + `tests/README.md`: automated in-game test of the scripting features (32 checks, writes
+  `vortex_selftest.txt`). Run it after scripting changes. Remove it from `export/.../mods` before packaging.
 - There's a bundled example mod at `example_mods/Vortex-Example-Mod` (week, song with split vocals, character,
   stage, custom event) — good for quick checks.
-- Things the earlier session could NOT test (no sound device in its Windows emulation): real audio playback, the
-  buddies singing to notes while a song plays, clicking through the chart editor's event dropdown, FPS on real hardware.
+- Earlier sessions couldn't test: the buddies singing to notes while a song plays, clicking through the chart editor's
+  event dropdown. (Real audio, input and FPS on the owner's PC were tested in the modding-upgrade session.)
 
 ## Open items / ideas
 - Owner's own mod hasn't been tested directly; if a crash happens, ask for the newest file in `crash/`.

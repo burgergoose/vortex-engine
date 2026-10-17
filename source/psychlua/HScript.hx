@@ -204,6 +204,19 @@ class HScript extends Iris
 			LuaUtils.debugPrint(text, color);
 		});
 
+		// Vortex Engine: global variables, mod key binds, script-made notes (same functions as Lua, see VortexFunctions.hx)
+		set('setGlobalVar', VortexFunctions.setGlobalVar);
+		set('getGlobalVar', VortexFunctions.getGlobalVar);
+		set('globalVarExists', function(name:String) return VortexFunctions.globalVars.exists(name));
+		set('removeGlobalVar', function(name:String) return VortexFunctions.globalVars.remove(name));
+		set('addKeybind', function(id:String, name:String, keys:Array<Dynamic>, ?buttons:Array<Dynamic>) return VortexFunctions.addKeybind(id, name, keys, buttons));
+		set('getKeybind', function(id:String) return backend.ModKeybinds.keyNames(id));
+		set('keybindExists', function(id:String) return ClientPrefs.keyBinds.exists(id != null ? id.toLowerCase() : ''));
+		set('spawnNote', function(time:Float, column:Int, ?mustPress:Bool = true, ?noteType:String = '', ?holdLength:Float = 0) return VortexFunctions.spawnNote(time, column, mustPress, noteType, holdLength));
+		set('getScriptErrorCount', function() return ScriptLog.errorCount);
+		set('writeToScriptLog', function(text:Dynamic) ScriptLog.info(Std.string(text)));
+		set('vortexVersion', backend.VortexConfig.engineVersion);
+
 		// Vortex Engine: custom states and scripted classes
 		set('ScriptedState', states.ScriptedState);
 		set('switchState', function(name:String, ?args:Array<Dynamic>) return states.ScriptedState.switchToState(name, args));

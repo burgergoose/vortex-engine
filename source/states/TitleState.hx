@@ -74,6 +74,7 @@ class TitleState extends MusicBeatState
 		if(!initialized)
 		{
 			ClientPrefs.loadPrefs();
+			backend.ModKeybinds.reload(); // Vortex Engine: key binds declared by mods (data/keybinds.json)
 			Language.reloadPhrases();
 		}
 

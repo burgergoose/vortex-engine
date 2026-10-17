@@ -105,6 +105,13 @@ class DebugOverlay extends TextField
 			var gfAnim:String = (play.gf != null) ? play.gf.getAnimationName() : '-';
 			lines.push('BF anim: $bfAnim  |  Dad anim: $dadAnim  |  GF anim: $gfAnim');
 
+			// Vortex Engine: notes waiting / on screen, chart build time, running scripts
+			var hxCount:Int = 0;
+			#if HSCRIPT_ALLOWED if (play.hscriptArray != null) hxCount = play.hscriptArray.length; #end
+			var luaCount:Int = 0;
+			#if LUA_ALLOWED if (play.luaArray != null) luaCount = play.luaArray.length; #end
+			lines.push('Notes: ${play.notes != null ? play.notes.length : 0} on screen, ${play.unspawnNotes.length} waiting  |  Chart built in ${play.chartBuildMs}ms  |  Scripts: $luaCount Lua, $hxCount HScript');
+
 			if (play.camGame != null && play.camHUD != null)
 				lines.push('Cam Game: zoom=${flixelRound(play.camGame.zoom)} pos=(${flixelRound(play.camGame.scroll.x)}, ${flixelRound(play.camGame.scroll.y)})  |  Cam HUD: zoom=${flixelRound(play.camHUD.zoom)}');
 
@@ -114,6 +121,9 @@ class DebugOverlay extends TextField
 		{
 			lines.push('(Song info only shows up while a song is loaded)');
 		}
+
+		if (psychlua.ScriptLog.errorCount > 0) // Vortex Engine
+			lines.push('Script errors: ${psychlua.ScriptLog.errorCount} (details in ${psychlua.ScriptLog.FILE})');
 
 		text = lines.join('\n');
 		textColor = 0xFFB8FFEA;
@@ -134,6 +144,7 @@ class DebugOverlay extends TextField
 
 	function reloadEverything():Void
 	{
+		psychlua.ScriptLog.reset(); // Vortex Engine: show errors again after a fix
 		// See the class doc comment: this is intentionally the same path as
 		// restartSong() -- Psych has no lighter-weight reload to extend.
 		restartSong();

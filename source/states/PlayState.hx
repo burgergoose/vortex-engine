@@ -316,6 +316,7 @@ class PlayState extends MusicBeatState
 			'note_up',
 			'note_right'
 		];
+		backend.ModKeybinds.reload(); // Vortex Engine: this song's mod may declare its own key binds (data/keybinds.json)
 
 		if(FlxG.sound.music != null)
 			FlxG.sound.music.stop();
@@ -1294,6 +1295,8 @@ class PlayState extends MusicBeatState
 
 	private var noteTypes:Array<String> = [];
 	private var eventsPushed:Array<String> = [];
+	/** Vortex Engine: how long building the notes from the chart took (ms), for the F3 overlay / profiling. **/
+	public var chartBuildMs:Int = 0;
 	private var totalColumns: Int = 4;
 
 	private function generateSong():Void
@@ -1361,6 +1364,31 @@ class PlayState extends MusicBeatState
 		var sectionsData:Array<SwagSection> = PlayState.SONG.notes;
 		var ghostNotesCaught:Int = 0;
 		var daBpm:Float = Conductor.bpm;
+
+		// Vortex Engine (performance): the ghost note check below used to compare every note with EVERY note made
+		// before it (n^2: ~50 million checks for an 8000-note chart, seconds of loading). Notes are now indexed by
+		// column / side / type / whole millisecond, so only notes that can match are compared. Same matches as before.
+		var genStart:Float = haxe.Timer.stamp();
+		var noteIndex:Map<String, Array<Note>> = new Map<String, Array<Note>>();
+		var noteKeys:Map<Note, String> = new Map<Note, String>();
+		inline function indexKey(column:Int, must:Bool, type:String, ms:Float):String
+			return column + (must ? '|1|' : '|0|') + type + '|' + ms;
+		function indexNote(n:Note, column:Int, must:Bool, type:String)
+		{
+			var k:String = indexKey(column, must, type, Math.ffloor(n.strumTime));
+			var list:Array<Note> = noteIndex.get(k);
+			if(list == null) noteIndex.set(k, list = []);
+			list.push(n);
+			noteKeys.set(n, k);
+		}
+		function unindexNote(n:Note)
+		{
+			var k:String = noteKeys.get(n);
+			if(k == null) return;
+			noteKeys.remove(n);
+			var list:Array<Note> = noteIndex.get(k);
+			if(list != null) list.remove(n);
+		}
 	
 		for (section in sectionsData)
 		{
@@ -1383,19 +1411,27 @@ class PlayState extends MusicBeatState
 
 				if (i != 0) {
 					// CLEAR ANY POSSIBLE GHOST NOTES
-					for (evilNote in unspawnNotes) {
-						var matches: Bool = (noteColumn == evilNote.noteData && gottaHitNote == evilNote.mustPress && evilNote.noteType == noteType);
-						if (matches && Math.abs(spawnTime - evilNote.strumTime) < flixel.math.FlxMath.EPSILON) {
-							if (evilNote.tail.length > 0)
-								for (tail in evilNote.tail)
-								{
-									tail.destroy();
-									unspawnNotes.remove(tail);
-								}
-							evilNote.destroy();
-							unspawnNotes.remove(evilNote);
-							ghostNotesCaught++;
-							//continue;
+					var bucket:Float = Math.ffloor(spawnTime - flixel.math.FlxMath.EPSILON);
+					var lastBucket:Float = Math.ffloor(spawnTime + flixel.math.FlxMath.EPSILON);
+					while (bucket <= lastBucket) {
+						var candidates:Array<Note> = noteIndex.get(indexKey(noteColumn, gottaHitNote, noteType, bucket));
+						bucket++;
+						if (candidates == null) continue;
+						for (evilNote in candidates.copy()) {
+							if (!candidates.contains(evilNote)) continue; // already removed as part of another note's tail
+							if (Math.abs(spawnTime - evilNote.strumTime) < flixel.math.FlxMath.EPSILON) {
+								if (evilNote.tail.length > 0)
+									for (tail in evilNote.tail)
+									{
+										unindexNote(tail);
+										tail.destroy();
+										unspawnNotes.remove(tail);
+									}
+								unindexNote(evilNote);
+								evilNote.destroy();
+								unspawnNotes.remove(evilNote);
+								ghostNotesCaught++;
+							}
 						}
 					}
 				}
@@ -1410,6 +1446,7 @@ class PlayState extends MusicBeatState
 	
 				swagNote.scrollFactor.set();
 				unspawnNotes.push(swagNote);
+				indexNote(swagNote, noteColumn, gottaHitNote, noteType);
 
 				var curStepCrochet:Float = 60 / daBpm * 1000 / 4.0;
 				final roundSus:Int = Math.round(swagNote.sustainLength / curStepCrochet);
@@ -1427,6 +1464,7 @@ class PlayState extends MusicBeatState
 						sustainNote.scrollFactor.set();
 						sustainNote.parent = swagNote;
 						unspawnNotes.push(sustainNote);
+						indexNote(sustainNote, noteColumn, gottaHitNote, noteType);
 						swagNote.tail.push(sustainNote);
 
 						sustainNote.correctionOffset = swagNote.height / 2;
@@ -1477,6 +1515,9 @@ class PlayState extends MusicBeatState
 			}
 		}
 		trace('["${SONG.song.toUpperCase()}" CHART INFO]: Ghost Notes Cleared: $ghostNotesCaught');
+		noteIndex = null;
+		noteKeys = null;
+		chartBuildMs = Math.round((haxe.Timer.stamp() - genStart) * 1000); // Vortex Engine: shown in the F3 overlay
 		for (event in songData.events) //Event Notes
 			for (i in 0...event[1].length)
 				makeEvent(event, i);
@@ -1851,7 +1892,7 @@ class PlayState extends MusicBeatState
 						while(i < notes.length)
 						{
 							var daNote:Note = notes.members[i];
-							if(daNote == null) continue;
+							if(daNote == null) { i++; continue; } // Vortex Engine: was `continue` without i++, an endless loop (frozen game) on an empty slot
 
 							var strumGroup:FlxTypedGroup<StrumNote> = playerStrums;
 							if(!daNote.mustPress) strumGroup = opponentStrums;
@@ -2527,6 +2568,100 @@ class PlayState extends MusicBeatState
 			#if HSCRIPT_ALLOWED startHScriptsNamed('custom_events/' + name + '.hx'); #end
 		}
 		catch(e:Dynamic) { trace('Could not load event script for "$name": $e'); }
+	}
+
+	// Vortex Engine: note type scripts (custom_notetypes/<type>.lua / .hx) used to load only for types placed in
+	// the chart. Notes added by scripts (spawnNote) load their type's script the first time it's needed.
+	var noteTypeScriptsChecked:Map<String, Bool> = new Map<String, Bool>();
+	public function ensureNoteTypeScript(name:String)
+	{
+		if(name == null || name.trim().length < 1 || noteTypeScriptsChecked.exists(name)) return;
+		noteTypeScriptsChecked.set(name, true);
+		try
+		{
+			#if LUA_ALLOWED startLuasNamed('custom_notetypes/' + name + '.lua'); #end
+			#if HSCRIPT_ALLOWED startHScriptsNamed('custom_notetypes/' + name + '.hx'); #end
+		}
+		catch(e:Dynamic) { trace('Could not load note type script for "$name": $e'); }
+	}
+
+	/**
+	 * Vortex Engine: adds a note (and its hold trail) while the song is playing - for mechanics like attack notes,
+	 * random patterns or notes generated from code, without touching the chart. Built the same way
+	 * generateSong() builds chart notes. Lua: spawnNote(time, column, mustPress, noteType, holdLength).
+	 * Returns the head note, or null if the song isn't ready.
+	 */
+	public function addNoteAtRuntime(strumTime:Float, column:Int, mustPress:Bool = true, ?noteType:String = '', ?sustainLength:Float = 0, ?gfNote:Bool = false, ?animSuffix:String = ''):Note
+	{
+		if(!generatedMusic || notes == null) return null;
+		if(noteType == null) noteType = '';
+		if(animSuffix == null) animSuffix = '';
+		if(Math.isNaN(sustainLength) || sustainLength < 0) sustainLength = 0;
+		column = Std.int(Math.abs(column)) % totalColumns;
+
+		var swagNote:Note = new Note(strumTime, column, null);
+		swagNote.gfNote = gfNote;
+		swagNote.animSuffix = animSuffix;
+		swagNote.mustPress = mustPress;
+		swagNote.sustainLength = sustainLength;
+		swagNote.noteType = noteType;
+		swagNote.scrollFactor.set();
+		var created:Array<Note> = [swagNote];
+
+		var curStepCrochet:Float = Conductor.getBPMFromSeconds(strumTime).stepCrochet;
+		final roundSus:Int = Math.round(sustainLength / curStepCrochet);
+		for (susNote in 0...roundSus)
+		{
+			var oldNote:Note = created[created.length - 1];
+			var sustainNote:Note = new Note(strumTime + (curStepCrochet * susNote), column, oldNote, true);
+			sustainNote.animSuffix = swagNote.animSuffix;
+			sustainNote.mustPress = swagNote.mustPress;
+			sustainNote.gfNote = swagNote.gfNote;
+			sustainNote.noteType = swagNote.noteType;
+			sustainNote.scrollFactor.set();
+			sustainNote.parent = swagNote;
+			swagNote.tail.push(sustainNote);
+			created.push(sustainNote);
+
+			sustainNote.correctionOffset = swagNote.height / 2;
+			if(!PlayState.isPixelStage)
+			{
+				if(oldNote.isSustainNote)
+				{
+					oldNote.scale.y *= Note.SUSTAIN_SIZE / oldNote.frameHeight;
+					oldNote.scale.y /= playbackRate;
+					oldNote.resizeByRatio(curStepCrochet / Conductor.stepCrochet);
+				}
+				if(ClientPrefs.data.downScroll) sustainNote.correctionOffset = 0;
+			}
+			else if(oldNote.isSustainNote)
+			{
+				oldNote.scale.y /= playbackRate;
+				oldNote.resizeByRatio(curStepCrochet / Conductor.stepCrochet);
+			}
+		}
+
+		for (note in created)
+		{
+			if (note.mustPress) note.x += FlxG.width / 2; // general offset
+			else if(ClientPrefs.data.middleScroll)
+			{
+				note.x += 310;
+				if(column > 1) note.x += FlxG.width / 2 + 25; //Up and Right
+			}
+
+			// keep unspawnNotes sorted by time (the spawner only looks at the first one)
+			var lo:Int = 0, hi:Int = unspawnNotes.length;
+			while(lo < hi)
+			{
+				var mid:Int = (lo + hi) >> 1;
+				if(unspawnNotes[mid].strumTime <= note.strumTime) lo = mid + 1;
+				else hi = mid;
+			}
+			unspawnNotes.insert(lo, note);
+		}
+		ensureNoteTypeScript(noteType);
+		return swagNote;
 	}
 
 	public function moveCameraSection(?sec:Null<Int>):Void {
@@ -3647,6 +3782,7 @@ class PlayState extends MusicBeatState
 		if(arr.length > 0)
 			for (script in arr)
 				luaArray.remove(script);
+		psychlua.ScriptedClasses.dispatch(funcToCall, args, true, false); // Vortex Engine: Lua scripted classes get song callbacks too
 		#end
 		return returnVal;
 	}
@@ -3659,6 +3795,7 @@ class PlayState extends MusicBeatState
 		if(excludeValues == null) excludeValues = new Array();
 		excludeValues.push(LuaUtils.Function_Continue);
 
+		psychlua.ScriptedClasses.dispatch(funcToCall, args, false, true); // Vortex Engine: HScript scripted classes get song callbacks too
 		var len:Int = hscriptArray.length;
 		if (len < 1)
 			return returnVal;
@@ -3704,6 +3841,7 @@ class PlayState extends MusicBeatState
 
 			script.set(variable, arg);
 		}
+		psychlua.ScriptedClasses.setVar(variable, arg, true, false); // Vortex Engine: keep class scripts' curBeat etc. current
 		#end
 	}
 
@@ -3716,6 +3854,7 @@ class PlayState extends MusicBeatState
 
 			script.set(variable, arg);
 		}
+		psychlua.ScriptedClasses.setVar(variable, arg, false, true); // Vortex Engine
 		#end
 	}
 
