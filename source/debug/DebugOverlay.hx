@@ -64,6 +64,7 @@ class DebugOverlay extends TextField
 		return value;
 	}
 
+	var textTimer:Float = 1000;
 	override private function __enterFrame(deltaTime:Float):Void
 	{
 		#if !mobile
@@ -76,6 +77,10 @@ class DebugOverlay extends TextField
 		else if (FlxG.keys.justPressed.F7) reloadEverything();
 		else if (FlxG.keys.justPressed.F8) returnToMenu();
 
+		// Vortex Engine (performance): rebuilding this text every frame was wasted work; 10 times a second is plenty
+		textTimer += deltaTime;
+		if (textTimer < 100) return;
+		textTimer = 0;
 		updateText();
 		#end
 	}

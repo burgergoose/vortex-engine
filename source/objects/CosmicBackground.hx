@@ -1,6 +1,7 @@
 package objects;
 
 import openfl.display.BitmapData;
+import flixel.graphics.FlxGraphic;
 import openfl.display.BitmapDataChannel;
 import openfl.display.Shape;
 import openfl.display.GradientType;
@@ -80,7 +81,7 @@ class CosmicBackground extends FlxGroup
 		baked = null;
 		try
 		{
-			baked = new FlxSprite(0, 0).loadGraphic(bakeSkyNebulaAndStars(width, height));
+			baked = new FlxSprite(0, 0).loadGraphic(cached('sky_${width}x${height}', function() return bakeSkyNebulaAndStars(width, height)));
 		}
 		catch (e:Dynamic)
 		{
@@ -98,6 +99,22 @@ class CosmicBackground extends FlxGroup
 		buildTwinkleStars(width, height);
 		buildDust(width, height);
 		buildShooters();
+	}
+
+	// Vortex Engine (performance): the sky/nebula bake is three full-screen Perlin-noise passes and used to be redone
+	// every time a menu opened (main menu, Story, Freeplay, chart editor). Bake once, keep it as a persistent graphic.
+	static var bakeCache:Map<String, FlxGraphic> = new Map<String, FlxGraphic>();
+	static function cached(key:String, make:Void->BitmapData):FlxGraphic
+	{
+		var g:FlxGraphic = bakeCache.get(key);
+		if(g != null && g.bitmap != null) return g;
+		var t0:Float = haxe.Timer.stamp();
+		g = FlxGraphic.fromBitmapData(make(), false, 'vortex_cosmic_' + key);
+		trace('cosmic background part "$key" baked in ' + Std.int((haxe.Timer.stamp() - t0) * 1000) + ' ms (cached from now on)');
+		g.persist = true;
+		g.destroyOnNoUse = false;
+		bakeCache.set(key, g);
+		return g;
 	}
 
 	function bakeRing(size:Int, color:Int, arcs:Int, seed:Int):BitmapData
@@ -134,7 +151,7 @@ class CosmicBackground extends FlxGroup
 		var defs:Array<Array<Dynamic>> = [[720, NEBULA_VIOLET, 4, 1, 5.0, 0.45], [560, ACCENT_CYAN, 3, 2, -8.0, 0.38], [380, NEBULA_MAGENTA, 3, 3, 12.0, 0.40]];
 		for (d in defs)
 		{
-			var ring:FlxSprite = new FlxSprite().loadGraphic(bakeRing(d[0], d[1], d[2], d[3]));
+			var ring:FlxSprite = new FlxSprite().loadGraphic(cached('ring_${d[0]}_${d[1]}_${d[2]}_${d[3]}', function() return bakeRing(d[0], d[1], d[2], d[3])));
 			ring.screenCenter();
 			ring.x = cx - ring.width / 2;
 			ring.scrollFactor.set();
@@ -208,20 +225,22 @@ class CosmicBackground extends FlxGroup
 
 	function drawNebulaLayer(canvas:BitmapData, w:Int, h:Int, tint:Int, maxAlpha:Float, scale:Int, seed:Int):Void
 	{
-		var noise:BitmapData = new BitmapData(w, h, true, 0x00000000);
-		noise.perlinNoise(scale, scale, 3, seed * 7919, false, true, 7, false);
+		// Vortex Engine (performance): the clouds are soft anyway, so make them at half size and scale them up
+		// (perlinNoise is the slow part; this is about 4x less work and looks the same)
+		var hw:Int = Std.int(Math.max(1, w / 2));
+		var hh:Int = Std.int(Math.max(1, h / 2));
+		var noise:BitmapData = new BitmapData(hw, hh, true, 0x00000000);
+		noise.perlinNoise(scale / 2, scale / 2, 3, seed * 7919, false, true, 7, false);
 
-		var colored:BitmapData = new BitmapData(w, h, true, (0xFF000000 | (tint & 0x00FFFFFF)));
-		colored.copyChannel(noise, new Rectangle(0, 0, w, h), new Point(0, 0), BitmapDataChannel.RED, BitmapDataChannel.ALPHA);
+		var colored:BitmapData = new BitmapData(hw, hh, true, (0xFF000000 | (tint & 0x00FFFFFF)));
+		colored.copyChannel(noise, new Rectangle(0, 0, hw, hh), new Point(0, 0), BitmapDataChannel.RED, BitmapDataChannel.ALPHA);
 
-		var faded:BitmapData = new BitmapData(w, h, true, 0x00000000);
+		var up:Matrix = new Matrix();
+		up.scale(w / hw, h / hh);
 		var ct:ColorTransform = new ColorTransform(1, 1, 1, maxAlpha);
-		faded.draw(colored, null, ct);
-
-		canvas.draw(faded);
+		canvas.draw(colored, up, ct, null, null, true);
 		noise.dispose();
 		colored.dispose();
-		faded.dispose();
 	}
 
 	function buildTwinkleStars(w:Int, h:Int):Void

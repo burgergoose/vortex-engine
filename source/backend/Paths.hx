@@ -62,8 +62,10 @@ class Paths
 		// clear anything not in the tracked assets list
 		for (key in FlxG.bitmap._cache.keys())
 		{
-			if (!currentTrackedAssets.exists(key))
-				destroyGraphic(FlxG.bitmap.get(key));
+			var g:FlxGraphic = FlxG.bitmap.get(key);
+			// Vortex Engine: keep graphics marked persist (e.g. the cached cosmic menu background)
+			if (!currentTrackedAssets.exists(key) && (g == null || !g.persist))
+				destroyGraphic(g);
 		}
 
 		// clear all sounds that are cached
