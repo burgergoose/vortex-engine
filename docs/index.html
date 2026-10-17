@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vortex Engine Modding Docs</title>
+<meta name="description" content="How to mod Vortex Engine: Lua and HScript, custom states, scripted classes, state scripts and custom events.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle" aria-label="Open navigation">Menu</button>
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true"></div>
+    <div>
+      <div class="brand-name">VORTEX</div>
+      <div class="brand-sub">Modding Docs</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-group">
+      <div class="nav-title">Start here</div>
+      <a href="#overview">Overview</a>
+      <a href="#setup">Setting up a mod</a>
+      <a href="#script-types">Where scripts go</a>
+      <a href="#debugging">Debugging</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Scripting</div>
+      <a href="#lua-api">Lua API</a>
+      <a href="#custom-states">Custom states</a>
+      <a href="#state-scripts">State scripts</a>
+      <a href="#scripted-classes">Scripted classes</a>
+      <a href="#hscript">HScript (.hx)</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Songs</div>
+      <a href="#custom-events">Custom events</a>
+      <a href="#change-stage">Change Stage event</a>
+      <a href="#song-files">Song audio files</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Reference</div>
+      <a href="#examples">Full example</a>
+      <a href="#reference">Function reference</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </div>
+  </nav>
+</aside>
+
+<main>
+
+<!-- ============================================================ -->
+<section id="overview">
+  <div class="hero">
+    <h1>Vortex Engine modding</h1>
+    <p>Vortex Engine is built on Psych Engine 1.0, so <strong>Psych Lua and HScript mods keep working</strong>. On top of that it adds custom screens, reusable scripted objects and scripts for the built-in menus, so you can build bigger mods without touching the engine's Haxe source.</p>
+    <div class="chips">
+      <span class="chip new">Custom states</span>
+      <span class="chip new">Scripted classes</span>
+      <span class="chip new">State scripts</span>
+      <span class="chip new">Lua outside songs</span>
+      <span class="chip new">Change Stage event</span>
+      <span class="chip">Psych 1.0 compatible</span>
+    </div>
+  </div>
+  <p>Everything on this page is implemented in the engine as it ships. Anything marked <span class="tag psych">Psych</span> works the same way as in Psych Engine, and the <a href="https://github.com/ShadowMario/FNF-PsychEngine/wiki">Psych Engine wiki</a> has the full list of its standard Lua functions. Anything marked <span class="tag vortex">Vortex</span> is new in Vortex Engine and documented in full here.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="setup">
+  <h2>Setting up a mod</h2>
+  <p class="section-lead">A mod is a folder inside <code>mods/</code>, next to <code>VortexEngine.exe</code>. Create a folder for your mod and add only the subfolders you need.</p>
+<div class="tree"><b>mods/</b>
+└─ <b>My-Mod/</b>
+   ├─ pack.json                <i>name, description, "runsGlobally"</i>
+   ├─ weeks/                   <i>week files (optional, see below)</i>
+   ├─ data/&lt;song&gt;/             <i>charts + song scripts</i>
+   ├─ songs/&lt;song&gt;/            <i>Inst.ogg, Voices.ogg ...</i>
+   ├─ characters/  stages/  images/  sounds/  music/
+   ├─ scripts/                 <i>Lua/HScript that runs in every song</i>
+   ├─ custom_events/           <i>your chart events</i>
+   ├─ custom_notetypes/
+   ├─ <b>states/</b>                  <i>Vortex: custom states + menu scripts</i>
+   └─ <b>classes/</b>                 <i>Vortex: scripted classes</i></div>
+  <ul>
+    <li>Mods are switched on and off in the <strong>Mods</strong> menu. A new folder is switched on automatically.</li>
+    <li><strong>Songs without a week:</strong> a song that has a chart in <code>data/&lt;song&gt;/</code> but isn't in any week file still shows up in Freeplay and Story Mode, in an automatic week named after the mod.</li>
+    <li>When you start the game, Vortex writes <code>vortex_mods_log.txt</code> next to the exe. It lists every mod, whether it's on, how many songs, characters, stages and events it has, and whether each song's <code>Inst</code> file was found.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="script-types">
+  <h2>Where scripts go</h2>
+  <p class="section-lead">Every script can be Lua (<code>.lua</code>) or HScript (<code>.hx</code>). Where you put the file decides when it runs.</p>
+  <table>
+    <thead><tr><th>Path in your mod</th><th>Runs</th><th></th></tr></thead>
+    <tbody>
+      <tr><td><code>scripts/*.lua</code></td><td>In every song</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>data/&lt;song&gt;/*.lua</code></td><td>In that song only</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>stages/&lt;stage&gt;.lua</code></td><td>When that stage is used</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>characters/&lt;name&gt;.lua</code></td><td>When that character is in the song</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>custom_events/&lt;Event&gt;.lua</code></td><td>When the event is in the chart, or the first time a script fires it</td><td><span class="tag psych">Psych</span> <span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>custom_notetypes/&lt;Type&gt;.lua</code></td><td>When the chart uses that note type</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>states/&lt;BuiltInState&gt;.lua</code></td><td>Alongside a built-in screen, e.g. <code>states/MainMenuState.lua</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>states/&lt;YourState&gt;.lua</code></td><td>As a whole screen, opened with <code>switchState('YourState')</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>classes/&lt;Class&gt;.lua</code></td><td>When you create an object from it with <code>createScripted</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><strong>Which mod's files are used?</strong> In songs, it's the mod the song belongs to, plus any mods with <code>"runsGlobally": true</code> in their <code>pack.json</code>. For <code>states/</code> and <code>classes/</code>, Vortex looks in <em>every enabled mod</em> (the current one first). That's because in menus only the top mod is "current".</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="debugging">
+  <h2>Debugging</h2>
+  <ul>
+    <li><code>debugPrint('text')</code> shows a message on screen. It now works everywhere: in songs, in menus and in custom states. Outside songs the messages appear top-left and fade after about 6 seconds.</li>
+    <li>Put <code>luaDebugMode = true</code> at the top of a Lua script to see its errors on screen, for example a typo in a function name. Psych hides these by default.</li>
+    <li>If the game hits an error it can't handle, it goes back to the main menu and shows a red message instead of closing. Full details go to the <code>crash/</code> folder next to the exe.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="lua-api">
+  <h2>Lua API</h2>
+  <p class="section-lead">All of Psych Engine 1.0's Lua functions are available and behave the same, including Psych's own <code>createInstance</code> and <code>callMethod</code> for Haxe classes. Vortex changes what's described below.</p>
+
+  <h3>Lua now runs outside songs <span class="tag vortex">Vortex</span></h3>
+  <p>In Psych, Lua scripts only exist during a song. In Vortex, the same Lua runs in menus, custom states and scripted classes. These functions work everywhere:</p>
+  <ul>
+    <li>Sprites and text: <code>makeLuaSprite</code>, <code>makeAnimatedLuaSprite</code>, <code>makeGraphic</code>, <code>addLuaSprite</code>, <code>removeLuaSprite</code>, <code>makeLuaText</code>, <code>addLuaText</code>, <code>setTextString</code>, <code>setTextColor</code>, <code>setTextSize</code> and the others.</li>
+    <li>Properties: <code>getProperty</code> and <code>setProperty</code>, including the <code>'tag.scale.x'</code> style.</li>
+    <li>Tweens, timers and sounds: <code>doTweenX</code> and friends, <code>runTimer</code>, <code>playSound</code>, <code>playMusic</code>. Their <code>onTweenCompleted</code>, <code>onTimerCompleted</code> and <code>onSoundFinished</code> callbacks reach the scripts of whatever screen is running.</li>
+    <li>Input: <code>keyboardJustPressed</code>, <code>keyboardPressed</code>, the gamepad functions and <code>mouseClicked</code>.</li>
+    <li><code>debugPrint</code>, <code>getModSetting</code>.</li>
+  </ul>
+  <p>Song-only functions such as <code>characterDance</code>, <code>setHealth</code> or note functions still need a song. In a menu they fail with a Lua error instead of crashing the game (turn on <code>luaDebugMode</code> to see it).</p>
+  <div class="callout"><code>addLuaSprite(tag, false)</code> normally places the sprite behind the characters. Outside a song there are no characters, so the sprite is simply added on top.</div>
+
+  <h3>New global variables <span class="tag vortex">Vortex</span></h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>inSong</code></td><td><code>true</code> when the script is running during a song.</td></tr>
+      <tr><td><code>curState</code></td><td>Name of the screen the script was started on, e.g. <code>'MainMenuState'</code> or <code>'ScriptedState'</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>Song variables like <code>songName</code>, <code>bpm</code> and <code>difficulty</code> are only set while a song is loaded.</p>
+
+  <h3>New functions <span class="tag vortex">Vortex</span></h3>
+  <p>Custom states, state switching and scripted classes each have their own section below. The <a href="#reference">function reference</a> lists every new function in one table.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="custom-states">
+  <h2>Custom states <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A custom state is a whole screen made from one script, such as a gallery, a sound test, a cutscene menu or a minigame. Put it in <code>states/&lt;Name&gt;.lua</code> (or <code>.hx</code>) and open it from any script.</p>
+
+<pre data-file="mods/My-Mod/states/Gallery.lua"><code>function onCreate()
+    makeLuaSprite('bg', '', 0, 0)
+    makeGraphic('bg', 1280, 720, '120C24')
+    addLuaSprite('bg')
+
+    makeLuaText('title', 'GALLERY', 1280, 0, 40)
+    setTextSize('title', 40)
+    addLuaText('title')
+
+    local args = getStateArgs()          -- whatever switchState() passed
+    debugPrint('opened with: ' .. tostring(args[1]))
+end
+
+function onUpdate(elapsed)
+    if keyboardJustPressed('ESCAPE') then
+        switchState('MainMenuState')     -- back to a built-in screen
+    end
+end</code></pre>
+
+  <p>Open it from anywhere, whether a song script, an event, a menu script or another custom state:</p>
+<pre><code>switchState('Gallery')                         -- no arguments
+switchState('Gallery', {'hello', 42})          -- arguments, read with getStateArgs()</code></pre>
+
+  <h3>Callbacks</h3>
+  <table>
+    <thead><tr><th>Function</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td><code>onCreate()</code></td><td>When the screen opens.</td></tr>
+      <tr><td><code>onCreatePost()</code></td><td>On the first frame, after everything is created.</td></tr>
+      <tr><td><code>onUpdate(elapsed)</code></td><td>Every frame, before the screen updates.</td></tr>
+      <tr><td><code>onUpdatePost(elapsed)</code></td><td>Every frame, after the screen updates.</td></tr>
+      <tr><td><code>onDestroy()</code></td><td>When leaving the screen.</td></tr>
+      <tr><td><code>onTimerCompleted</code>, <code>onTweenCompleted</code>, <code>onSoundFinished</code></td><td>Same as in songs.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Opening built-in screens</h3>
+  <p><code>switchState</code> also opens the engine's own screens by name: <code>MainMenuState</code>, <code>FreeplayState</code>, <code>StoryMenuState</code>, <code>OptionsState</code>, <code>CreditsState</code>, <code>TitleState</code> and <code>ModsMenuState</code>. If your mod has a custom state with the same name, yours is opened instead. Switching away from a song stops its music, like "Exit to menu" does.</p>
+  <div class="callout warn">If nothing has that name, <code>switchState</code> returns <code>false</code>, prints a message and stays on the current screen. It never leaves you on a black screen.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="state-scripts">
+  <h2>State scripts (scripting the built-in menus) <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Give a script the name of a built-in screen and it runs <em>alongside</em> that screen. The screen keeps working normally, and your script can add things to it. This is how you add a way into your custom states.</p>
+<pre data-file="mods/My-Mod/states/MainMenuState.lua"><code>function onCreatePost()
+    makeLuaText('hint', 'Press G for the gallery', 600, 660, 660)
+    addLuaText('hint')
+end
+
+function onUpdate(elapsed)
+    if keyboardJustPressed('G') then
+        switchState('Gallery')
+    end
+end</code></pre>
+  <p>The callbacks are the same as for <a href="#custom-states">custom states</a>. Use <code>onCreatePost</code> to draw on top of the screen's own graphics. The file name must match the screen's name, for example <code>MainMenuState</code>, <code>FreeplayState</code>, <code>StoryMenuState</code>, <code>CreditsState</code> or <code>TitleState</code>. Songs don't use this: during a song, use <code>scripts/</code> or <code>data/&lt;song&gt;/</code> as in Psych.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="scripted-classes">
+  <h2>Scripted classes <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A scripted class is a reusable object written once in <code>classes/&lt;Name&gt;.lua</code> (or <code>.hx</code>). You can create as many copies ("instances") of it as you want, in songs, menus or custom states. Each instance is a normal sprite saved under its tag, so every sprite function works on it.</p>
+
+<pre data-file="mods/My-Mod/classes/Bouncer.lua"><code>-- "self" is the instance's tag, so use it like any sprite tag
+local timeAlive = {}
+
+function new(self, color)
+    makeGraphic(self, 120, 120, color or 'FFFFFF')
+    addLuaSprite(self, true)
+    timeAlive[self] = 0
+end
+
+function update(self, elapsed)
+    timeAlive[self] = timeAlive[self] + elapsed
+    setProperty(self .. '.y', 300 + math.sin(timeAlive[self] * 3) * 60)
+end
+
+function jump(self, height)          -- your own method
+    setProperty(self .. '.scale.x', 1.5)
+    setProperty(self .. '.scale.y', 1.5)
+    return 'jumped ' .. height
+end</code></pre>
+
+  <p>Use it from any script:</p>
+<pre><code>createScripted('Bouncer', 'red', 300, 300, 'FF4F7A')    -- class, tag, x, y, then up to 5 values for new()
+createScripted('Bouncer', 'teal', 500, 300, '35D0C0')
+
+local result = callScripted('teal', 'jump', 120)       -- call your own method, get its return value
+setProperty('red.alpha', 0.5)                          -- instances are normal sprites
+
+if scriptedExists('red') then destroyScripted('red') end</code></pre>
+
+  <h3>Class functions</h3>
+  <p>All of these are optional. The instance always comes first. In Lua that's its tag; in HScript it's the sprite itself.</p>
+  <table>
+    <thead><tr><th>Function</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td><code>new(self, ...)</code></td><td>When <code>createScripted</code> makes the instance. It receives the extra values you passed.</td></tr>
+      <tr><td><code>update(self, elapsed)</code></td><td>Every frame.</td></tr>
+      <tr><td><code>beatHit(self, beat)</code></td><td>Every beat, while music is driving the beat clock (in songs).</td></tr>
+      <tr><td><code>stepHit(self, step)</code></td><td>Every step, under the same conditions.</td></tr>
+      <tr><td><code>destroy(self)</code></td><td>When <code>destroyScripted</code> removes the instance.</td></tr>
+      <tr><td><em>anything else</em></td><td>Called with <code>callScripted(tag, 'name', ...)</code>.</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>Each class script is loaded <strong>once per screen</strong> and shared by all its instances. Lua variables at the top of the file are shared too, so store per-instance data in a table keyed by <code>self</code>, as above.</li>
+    <li><code>new</code> doesn't add the sprite to the screen by itself. Call <code>addLuaSprite(self, true)</code> (Lua) or <code>FlxG.state.add(self)</code> (HScript) when you want it shown.</li>
+    <li>Instances are cleared when the screen changes. Removing one with <code>removeLuaSprite(tag, true)</code> also stops its <code>update</code>.</li>
+  </ul>
+
+  <h3>HScript class</h3>
+<pre data-file="mods/My-Mod/classes/Spinner.hx"><code>function new(self, size) {
+    self.makeGraphic(size, size, FlxColor.YELLOW);
+    FlxG.state.add(self);
+}
+
+function update(self, elapsed) {
+    self.angle += elapsed * 120;
+}</code></pre>
+<pre><code>createScripted('Spinner', 'spin', 800, 280, 120)   -- Lua: the HScript class works the same way</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="hscript">
+  <h2>HScript (.hx)</h2>
+  <p class="section-lead">Any script above can be written in HScript (Haxe syntax) by using <code>.hx</code> instead of <code>.lua</code>. HScript has direct access to Flixel and engine classes (<code>FlxG</code>, <code>FlxSprite</code>, <code>FlxTween</code>, <code>Paths</code>...), as in Psych Engine 1.0.</p>
+  <p>The new Vortex functions are available in HScript too. There, arguments are passed as an array:</p>
+<pre><code>switchState('Gallery', ['hello', 42]);
+var spr = createScripted('Bouncer', 'red', 300, 300, ['FF4F7A']);  // returns the sprite
+callScripted('red', 'jump', [120]);
+var sameSprite = getScripted('red');
+var args = getStateArgs();</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="custom-events">
+  <h2>Custom events</h2>
+  <p class="section-lead">Events are things that happen at a set time in the chart. Make your own in <code>custom_events/</code>.</p>
+<div class="tree"><b>custom_events/</b>
+├─ Flash Test.txt     <i>description shown in the chart editor (optional in Vortex)</i>
+└─ Flash Test.lua     <i>or Flash Test.hx</i></div>
+<pre data-file="mods/My-Mod/custom_events/Flash Test.lua"><code>function onEvent(name, value1, value2, strumTime)
+    if name == 'Flash Test' then
+        cameraFlash('game', 'FFFFFF', 0.5)
+        debugPrint('Flash Test fired, value 1 = ' .. value1)
+    end
+end</code></pre>
+  <ul>
+    <li>In the chart editor, pick the event in the <strong>Events</strong> tab, fill in Value 1 and Value 2, and place it on the grid.</li>
+    <li><span class="tag vortex">Vortex</span> An event with only a <code>.lua</code> or <code>.hx</code> file and no <code>.txt</code> still shows up in the chart editor list. Psych only listed events that had a <code>.txt</code>.</li>
+    <li><span class="tag vortex">Vortex</span> You can fire an event from any script, even one that isn't placed in the chart. The engine loads its script the first time:
+<pre><code>triggerEvent('Flash Test', 'hello', '')</code></pre>
+    In Psych, an event that wasn't in the chart never loaded its script, so <code>onEvent</code> never reached it.</li>
+    <li><code>onEventPushed(name, value1, value2, strumTime)</code> runs once for every event in the chart while the song loads. It's useful for preloading.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="change-stage">
+  <h2>Change Stage event <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A built-in event that swaps the whole stage in the middle of a song. It works with your own stages and with the built-in ones.</p>
+  <table>
+    <thead><tr><th>Value</th><th>What to write</th></tr></thead>
+    <tbody>
+      <tr><td>Value 1</td><td>The stage you're in now, e.g. <code>stage</code>.</td></tr>
+      <tr><td>Value 2</td><td>The stage to change to: a stage from <code>stages/&lt;name&gt;.json</code> or a built-in one.</td></tr>
+    </tbody>
+  </table>
+  <p>The characters stay and move to the new stage's positions. The camera zoom and offsets change to the new stage's, and the new stage's script (<code>stages/&lt;name&gt;.lua</code> or <code>.hx</code>) is started. The old stage's script keeps running, so check <code>curStage</code> in it if it should stop doing things. The new stage's pictures are loaded while the song loads, so the swap doesn't stutter. If Value 1 doesn't match the current stage, the stage changes anyway and a note goes to the log.</p>
+<pre><code>triggerEvent('Change Stage', 'stage', 'my-night-stage')   -- from a script</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="song-files">
+  <h2>Song audio files</h2>
+  <p class="section-lead">Put the audio in <code>songs/&lt;song&gt;/</code>, using the same names as Psych Engine.</p>
+  <table>
+    <thead><tr><th>File</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td><code>Inst.ogg</code></td><td>The instrumental. Required.</td></tr>
+      <tr><td><code>Voices.ogg</code></td><td>All vocals in one file.</td></tr>
+      <tr><td><code>Voices-Player.ogg</code> + <code>Voices-Opponent.ogg</code></td><td>Separate vocals for each side.</td></tr>
+    </tbody>
+  </table>
+  <p><code>.wav</code> also works if there's no <code>.ogg</code>. <code>.mp3</code> does not. If the <code>Inst</code> is missing, Vortex shows a screen saying where it looked, instead of playing a short beep.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="examples">
+  <h2>Full example</h2>
+  <p class="section-lead">A main-menu entry that opens a custom state full of scripted objects. These are the same files used to test this feature in the engine.</p>
+  <div class="grid-2">
+    <div class="card"><h4>1. Entry point</h4><p><code>states/MainMenuState.lua</code> adds a hint and opens the gallery when G is pressed. See <a href="#state-scripts">State scripts</a>.</p></div>
+    <div class="card"><h4>2. The screen</h4><p><code>states/Gallery.lua</code> is shown below.</p></div>
+    <div class="card"><h4>3. A Lua class</h4><p><code>classes/Bouncer.lua</code>. See <a href="#scripted-classes">Scripted classes</a>.</p></div>
+    <div class="card"><h4>4. An HScript class</h4><p><code>classes/Spinner.hx</code>. See <a href="#scripted-classes">Scripted classes</a>.</p></div>
+  </div>
+<pre data-file="mods/My-Mod/states/Gallery.lua"><code>function onCreate()
+    makeLuaSprite('bg', '', 0, 0)
+    makeGraphic('bg', 1280, 720, '120C24')
+    addLuaSprite('bg')
+
+    makeLuaText('title', 'GALLERY', 1280, 0, 40)
+    setTextSize('title', 40)
+    setTextColor('title', '52E7FF')
+    addLuaText('title')
+
+    createScripted('Bouncer', 'red', 300, 300, 'FF4F7A')
+    createScripted('Bouncer', 'teal', 500, 300, '35D0C0')
+    createScripted('Spinner', 'spin', 800, 280, 120)
+
+    runTimer('hello', 1)
+end
+
+function onTimerCompleted(tag)
+    if tag == 'hello' then
+        callScripted('teal', 'jump', 120)
+    end
+end
+
+function onUpdate(elapsed)
+    if keyboardJustPressed('ESCAPE') then
+        switchState('MainMenuState')
+    end
+end</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="reference">
+  <h2>Function reference <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Every function Vortex adds. They're all available in Lua and HScript. In HScript, pass the extra values as an array.</p>
+  <h4>States</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>switchState(name, args?)</code></td><td>bool</td><td>Opens custom state <code>states/name</code> or a built-in screen. <code>args</code> is a table (Lua) or array (HScript). Returns <code>false</code> if nothing has that name.</td></tr>
+      <tr><td><code>stateExists(name)</code></td><td>bool</td><td>Is there a custom state with this name in an enabled mod?</td></tr>
+      <tr><td><code>getStateName()</code></td><td>string</td><td>The current custom state's name, or the built-in screen's name.</td></tr>
+      <tr><td><code>getStateArgs()</code></td><td>table</td><td>The arguments passed to <code>switchState</code>. Empty outside custom states.</td></tr>
+    </tbody>
+  </table>
+  <h4>Scripted classes</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>createScripted(class, tag, x, y, ...)</code></td><td>tag / sprite</td><td>Makes an instance of <code>classes/class</code> at x, y and calls its <code>new(self, ...)</code>. Lua takes up to 5 extra values and returns the tag, or <code>nil</code> if it failed. HScript takes an array and returns the sprite. Reusing a tag replaces the old object.</td></tr>
+      <tr><td><code>callScripted(tag, method, ...)</code></td><td>any</td><td>Calls one of the class's functions on that instance and returns what it returns.</td></tr>
+      <tr><td><code>destroyScripted(tag)</code></td><td>bool</td><td>Calls <code>destroy(self)</code>, then removes and deletes the sprite.</td></tr>
+      <tr><td><code>scriptedExists(tag)</code></td><td>bool</td><td>Is there an instance with this tag?</td></tr>
+      <tr><td><code>scriptedClassExists(class)</code></td><td>bool</td><td>Is there a <code>classes/class.lua</code> or <code>.hx</code> in an enabled mod?</td></tr>
+      <tr><td><code>getScriptedOf(class)</code></td><td>table</td><td>Tags of every instance of that class, in the order they were created.</td></tr>
+      <tr><td><code>getScripted(tag)</code></td><td>sprite</td><td><em>HScript only.</em> The instance's sprite object.</td></tr>
+    </tbody>
+  </table>
+  <h4>Changed behaviour</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>debugPrint(text, color?)</code></td><td>Works outside songs too.</td></tr>
+      <tr><td><code>triggerEvent(name, v1, v2)</code></td><td>Loads <code>custom_events/name</code> the first time if it isn't in the chart.</td></tr>
+      <tr><td><code>addLuaSprite(tag, false)</code></td><td>Outside songs, adds the sprite on top, since there are no characters to go behind.</td></tr>
+      <tr><td><code>getModSetting</code></td><td>Its warnings work outside songs.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section id="troubleshooting">
+  <h2>Troubleshooting</h2>
+  <ul>
+    <li><strong>"My event doesn't do anything."</strong> Check that the name in <code>if name == '...'</code> matches the file name exactly, spaces included. Add <code>luaDebugMode = true</code> to see script errors.</li>
+    <li><strong>"My custom state isn't found."</strong> The file must be in <code>states/</code> inside an <em>enabled</em> mod, and <code>switchState</code> takes the file name without <code>.lua</code>.</li>
+    <li><strong>"createScripted returns nil."</strong> The class file isn't in <code>classes/</code>, or its <code>new</code> function has an error. Use <code>luaDebugMode = true</code> in the class file.</li>
+    <li><strong>"My song doesn't show up."</strong> Open <code>vortex_mods_log.txt</code>. It shows whether the mod is on and whether the chart and <code>Inst</code> were found.</li>
+    <li><strong>"Lua functions named createInstance / callMethod behave differently."</strong> Those are Psych's Haxe-class functions and are unchanged. Vortex's scripted-class functions are named <code>createScripted</code> / <code>callScripted</code> so they don't clash.</li>
+  </ul>
+  <footer>Vortex Engine is a fork of <a href="https://github.com/ShadowMario/FNF-PsychEngine">Psych Engine</a>. The chart editor's Little Buddies use art from <a href="https://github.com/ThatRozebudDude/FPS-Plus-Public">FPS Plus</a> by ThatRozebudDude (non-commercial use).</footer>
+</section>
+
+</main>
+</div>
+
+<script>
+// tiny syntax colouring for the Lua / Haxe examples
+(function () {
+  var kw = /\b(function|end|if|then|else|elseif|local|return|for|in|do|while|not|and|or|nil|true|false|var|new|null)\b/g;
+  document.querySelectorAll('pre code').forEach(function (el) {
+    var html = el.innerHTML;
+    var out = '', i = 0;
+    // split strings and comments first so keywords inside them aren't coloured
+    var re = /(--[^\n]*|\/\/[^\n]*)|('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/g, m, last = 0;
+    var parts = [];
+    while ((m = re.exec(html))) {
+      parts.push({t: 'code', v: html.slice(last, m.index)});
+      parts.push({t: m[1] ? 'c' : 's', v: m[0]});
+      last = re.lastIndex;
+    }
+    parts.push({t: 'code', v: html.slice(last)});
+    el.innerHTML = parts.map(function (p) {
+      if (p.t === 'c') return '<span class="c">' + p.v + '</span>';
+      if (p.t === 's') return '<span class="s">' + p.v + '</span>';
+      return p.v
+        .replace(kw, '<span class="k">$1</span>')
+        .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="n">$1</span>')
+        .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\()/g, function (s, n) { return /^(if|for|while|function)$/.test(n) ? s : '<span class="f">' + n + '</span>'; });
+    }).join('');
+  });
+
+  // copy buttons
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var b = document.createElement('button');
+    b.className = 'copy-btn'; b.textContent = 'Copy';
+    b.addEventListener('click', function () {
+      var txt = pre.querySelector('code').innerText;
+      try { navigator.clipboard.writeText(txt).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); } catch (e) {}
+    });
+    pre.appendChild(b);
+  });
+
+  // mobile menu
+  var sb = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', function () { sb.classList.toggle('open'); });
+  sb.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { sb.classList.remove('open'); }); });
+
+  // highlight the section in view
+  var links = Array.prototype.slice.call(sb.querySelectorAll('a[href^="#"]'));
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      links.forEach(function (l) { l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id); });
+    });
+  }, {rootMargin: '-30% 0px -60% 0px'});
+  document.querySelectorAll('main section[id]').forEach(function (s) { obs.observe(s); });
+})();
+</script>
+</body>
+</html>
