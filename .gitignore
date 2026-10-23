@@ -1,0 +1,39 @@
+### FNF-Specific
+# File used for the NG API. Should not be shared with others.
+APIStuff.hx
+art/buildScripts/build_x32-officialrelease.bat
+art/buildScripts/build_x64-officialrelease.bat
+art/buildScripts/test_x64-debug-officialrelease.bat
+
+### VS Code
+export/*
+.vscode/*
+.haxelib/
+.github/
+*.code-workspace
+vs_Community.exe
+# Local history which shouldn't be shared.
+.history
+.ionide
+# macOS file attribute which can cause problems when uploading.
+*.DS_Store
+# ! means a file should be added regardless of it it gets ignored prior.
+# Including to allow others to use already set-up configuration tweaked for the project.
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+art/build_html.bat
+art/build_html-debug.bat
+tests/VortexVocalsTest/data/
+tests/VortexVocalsTest/songs/
+tests/VortexStrumlineTest/songs/
+
+# Vortex Engine 0.5: generated engine-compatibility test mods (python tests/make_compat_test.py)
+tests/VortexCompatTest/fixtures/
+# translation cache / logs the game writes next to the exe
+vortex_compat/
+vortex_compat_log.txt
+# never commit release signing keys
+*private_key*
+*.pem

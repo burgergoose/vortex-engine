@@ -1,0 +1,172 @@
+{
+ "song": {
+  "song": "strum-test",
+  "bpm": 100,
+  "speed": 1,
+  "offset": 0,
+  "needsVoices": true,
+  "player1": "bf",
+  "player2": "example-dad",
+  "gfVersion": "gf",
+  "stage": "example-stage",
+  "format": "psych_v1",
+  "events": [],
+  "notes": [
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": []
+   },
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": [
+     [
+      2400,
+      0,
+      0,
+      "",
+      1
+     ],
+     [
+      3600,
+      1,
+      0
+     ]
+    ]
+   },
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": [
+     [
+      4800,
+      2,
+      0
+     ],
+     [
+      4800,
+      10,
+      0
+     ],
+     [
+      6000,
+      15,
+      0
+     ]
+    ]
+   },
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": [
+     [
+      7800,
+      12,
+      0,
+      "",
+      0
+     ],
+     [
+      9000,
+      4,
+      0
+     ]
+    ]
+   },
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": [
+     [
+      9600,
+      20,
+      0
+     ],
+     [
+      10200,
+      3,
+      300
+     ],
+     [
+      10200,
+      11,
+      300
+     ]
+    ]
+   },
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": []
+   },
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": []
+   },
+   {
+    "sectionBeats": 4,
+    "mustHitSection": true,
+    "sectionNotes": []
+   }
+  ],
+  "strumLines": [
+   {
+    "name": "Player",
+    "type": "player",
+    "characters": [
+     {
+      "name": "bf"
+     },
+     {
+      "name": "dad",
+      "position": "boyfriend",
+      "x": 260,
+      "y": 0,
+      "flipX": true
+     }
+    ]
+   },
+   {
+    "name": "Opponent",
+    "type": "opponent",
+    "characters": [
+     {
+      "name": "example-dad"
+     }
+    ]
+   },
+   {
+    "name": "Duet",
+    "type": "player",
+    "characters": [
+     {
+      "name": "gf",
+      "position": "boyfriend",
+      "x": -260
+     }
+    ],
+    "strumScale": 0.5
+   },
+   {
+    "name": "Backup",
+    "type": "additional",
+    "characters": [
+     {
+      "name": "dad",
+      "position": "dad",
+      "x": -280
+     },
+     {
+      "name": "bf",
+      "position": "dad",
+      "x": -560,
+      "flipX": true
+     }
+    ],
+    "strumScale": 0.5
+   }
+  ]
+ }
+}

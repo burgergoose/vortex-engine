@@ -1,0 +1,35 @@
+{
+	"format": 1,
+	"name": "My Menu",
+	"author": "",
+	"autoApply": false,
+	"font": "vcr.ttf",
+	"colors": {
+		"panelFill": "#120C24",
+		"panelBorder": "#4A3E7A",
+		"panelBorderSelected": "#9C6BFF",
+		"accent": "#52E7FF",
+		"text": "#F3F0FF",
+		"textDim": "#AFA8D8",
+		"primary": "#7C4DFF",
+		"secondary": "#D84FA0",
+		"tertiary": "#35D0C0"
+	},
+	"background": {"type": "cosmic"},
+	"animations": {"intro": "slide", "speed": 1},
+	"transitions": {"type": "fade", "duration": 0.5},
+	"mainMenu": {
+		"title": "MY MOD",
+		"subtitle": "MAIN MENU",
+		"buttons": {"x": 60, "y": 188, "spacing": 14, "width": 470, "align": "left"},
+		"labels": {},
+		"icons": {},
+		"showInfoPanel": true,
+		"infoText": {},
+		"navigation": {"wrap": true, "mouse": true},
+		"showVersion": true
+	},
+	"freeplay": {"title": "FREEPLAY", "showInfoPanel": true},
+	"storyMode": {"title": "STORY MODE"},
+	"developerMenu": {"title": "DEVELOPER"}
+}

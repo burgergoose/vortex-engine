@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"name": "Deliberately broken menu (theme test)",
+	"unknownKey": 1,
+	"colors": {"accent": "not-a-colour", "bogus": "#FFFFFF"},
+	"background": {"type": "image", "image": "missing.png"},
+	"animations": {"intro": "spin"},
+	"mainMenu": {"icons": {"story_mode": "nope.png"}, "buttons": {"align": "middle"}}
+}

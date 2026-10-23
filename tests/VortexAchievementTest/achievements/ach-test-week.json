@@ -1,0 +1,1 @@
+{"name": "Test: week FC", "description": "Finish exampleweek with no misses.", "unlock": {"type": "week_complete", "week": "exampleweek", "maxMisses": 0}}

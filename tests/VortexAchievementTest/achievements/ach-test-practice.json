@@ -1,0 +1,1 @@
+{"name": "Test: practice finish", "description": "Finish any song, practice allowed.", "unlock": {"type": "song_complete", "song": "", "allowPractice": true}}

@@ -1,0 +1,95 @@
+{
+	"format": 1,
+	"name": "Example Sunset",
+	"author": "Vortex Engine example mod",
+	"autoApply": false,
+	"font": "vcr.ttf",
+	"colors": {
+		"panelFill": "#2A1208",
+		"panelBorder": "#7A4A2E",
+		"panelBorderSelected": "#FFB04A",
+		"accent": "#FFD27A",
+		"text": "#FFF5E6",
+		"textDim": "#D9B79A",
+		"primary": "#FF7A3D",
+		"secondary": "#E0457B",
+		"tertiary": "#4FC9B0"
+	},
+	"background": {
+		"type": "gradient",
+		"colors": [
+			"#3D1B4F",
+			"#E86A3A"
+		],
+		"animation": {
+			"file": "orbit",
+			"prefix": "orbit spin",
+			"fps": 12,
+			"x": 1120,
+			"y": 40,
+			"scale": 1
+		}
+	},
+	"animations": {
+		"intro": "fade",
+		"speed": 1.2
+	},
+	"transitions": {
+		"type": "fade",
+		"duration": 0.4
+	},
+	"mainMenu": {
+		"logo": "logo.png",
+		"buttons": {
+			"x": 60,
+			"y": 200,
+			"spacing": 12,
+			"width": 470,
+			"align": "left"
+		},
+		"labels": {
+			"story_mode": "Campaign",
+			"freeplay": "Free Play"
+		},
+		"icons": {
+			"story_mode": "icons/story.png",
+			"freeplay": "icons/freeplay.png",
+			"mods": "icons/mods.png",
+			"credits": "icons/credits.png"
+		},
+		"showInfoPanel": true,
+		"infoText": {
+			"story_mode": "Play the Example Week from the start."
+		},
+		"navigation": {
+			"wrap": true,
+			"mouse": true
+		},
+		"showVersion": true
+	},
+	"freeplay": {
+		"title": "FREE PLAY",
+		"showInfoPanel": true
+	},
+	"storyMode": {
+		"title": "CAMPAIGN"
+	},
+	"developerMenu": {
+		"title": "DEVELOPER",
+		"background": {
+			"type": "color",
+			"color": "#1A0D06"
+		}
+	},
+	"chartEditor": {
+		"background": "#2A1A12",
+		"grid": [
+			"#E8D2BE",
+			"#D2B89F"
+		],
+		"gridOther": [
+			"#6A5040",
+			"#55402F"
+		]
+	}
+}

@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vortex Engine Modding Docs</title>
+<meta name="description" content="How to mod Vortex Engine: the Achievement Editor, Lua and HScript, custom states, scripted classes, state scripts, shared modules, mod key binds, script-made notes and custom events.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<button class="menu-toggle" id="menuToggle" aria-label="Open navigation">Menu</button>
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true"></div>
+    <div>
+      <div class="brand-name">VORTEX</div>
+      <div class="brand-sub">Modding Docs</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-group">
+      <div class="nav-title">Start here</div>
+      <a href="#overview">Overview</a>
+      <a href="#setup">Setting up a mod</a>
+      <a href="#script-types">Where scripts go</a>
+      <a href="#debugging">Debugging</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Scripting</div>
+      <a href="#lua-api">Lua API</a>
+      <a href="#custom-states">Custom states</a>
+      <a href="#state-scripts">State scripts</a>
+      <a href="#scripted-classes">Scripted classes</a>
+      <a href="#global-scripts">Global scripts &amp; variables</a>
+      <a href="#require">Shared code (require)</a>
+      <a href="#substates">Custom substates</a>
+      <a href="#hscript">HScript (.hx)</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Other engines</div>
+      <a href="#compat">Engine compatibility</a>
+      <a href="#compat-details">What gets translated</a>
+      <a href="#vslice-converter">V-Slice Converter</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Menus</div>
+      <a href="#menu-themes">Menu Editor &amp; themes</a>
+      <a href="#custom-menus">Custom menus</a>
+      <a href="#custom-menus-schema">menu.json reference</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Achievements</div>
+      <a href="#achievements">Achievement Editor</a>
+      <a href="#achievement-files">Achievement files</a>
+      <a href="#achievement-scripts">Achievement scripts</a>
+      <a href="#achievement-example">Working example</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Songs</div>
+      <a href="#strumlines">Strumlines</a>
+      <a href="#strumline-api">Strumline functions</a>
+      <a href="#spawn-note">Notes from scripts</a>
+      <a href="#keybinds">Mod key binds</a>
+      <a href="#custom-events">Custom events</a>
+      <a href="#change-stage">Change Stage event</a>
+      <a href="#camera-events">Camera events</a>
+      <a href="#song-files">Song audio files</a>
+      <a href="#videos">Videos</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">Reference</div>
+      <a href="#examples">Full example</a>
+      <a href="#reference">Function reference</a>
+      <a href="#build-verification">Official builds</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </div>
+  </nav>
+</aside>
+
+<main>
+
+<!-- ============================================================ -->
+<section id="overview">
+  <div class="hero">
+    <h1>Vortex Engine modding</h1>
+    <p>Vortex Engine is built on Psych Engine 1.0, so <strong>Psych Lua and HScript mods keep working</strong>. On top of that it adds custom screens, reusable scripted objects and scripts for the built-in menus, so you can build bigger mods without touching the engine's Haxe source.</p>
+    <div class="chips">
+      <span class="chip new">Mods from other engines</span>
+      <span class="chip new">V-Slice Converter</span>
+      <span class="chip new">Menu themes</span>
+      <span class="chip new">Strumlines</span>
+      <span class="chip new">Achievement Editor</span>
+      <span class="chip new">Custom states</span>
+      <span class="chip new">Scripted classes</span>
+      <span class="chip new">State scripts</span>
+      <span class="chip new">Lua outside songs</span>
+      <span class="chip new">Change Stage event</span>
+      <span class="chip new">require() modules</span>
+      <span class="chip new">Global variables</span>
+      <span class="chip new">Mod key binds</span>
+      <span class="chip new">spawnNote</span>
+      <span class="chip new">Script error log</span>
+      <span class="chip">Psych 1.0 compatible</span>
+    </div>
+  </div>
+  <div class="callout tip"><strong>New in 0.7.2:</strong> converted dialogue looks like Psych's (Psych's own letters, size and place; portraits with Psych's offsets; Psych's built-in portraits such as <code>gf</code>; the centre speech bubble) and the dialogue after a song can be clicked through. <code>startVideo()</code> videos before and after songs play in V-Slice, Lua text (<code>makeLuaText</code> and the other text functions) shows up, a full-screen Lua sprite (a black screen) stays under the notes so they can still be hit, and more Psych Lua functions work (keys, sound fades, <code>getPropertyFromClass</code> for <code>FlxG</code>).</div>
+  <div class="callout tip"><strong>New in 0.7.1:</strong> converted mods run much faster on phones: translated Lua scripts do far less work per frame (a camera script went from 57 to 130 FPS in a test), pictures bigger than 4096 pixels are made smaller (they look the same), and a mod picture at the same path as a base-game picture no longer replaces the base game's picture.</div>
+  <div class="callout tip"><strong>New in 0.7:</strong> the <a href="#vslice-converter">V-Slice Converter</a> was rebuilt and tested in the real Friday Night Funkin' 0.8.6: characters stand exactly where they do in your Psych mod, nothing replaces the base game's characters, songs or stages, Lua scripts (custom events, song scripts, global scripts) are translated to V-Slice HScript, Psych dialogue becomes V-Slice dialogue, and every conversion gets a phone-ready zip.</div>
+  <div class="callout tip"><strong>New in 0.6:</strong> mods from other engines load much more reliably: V-Slice mods are read the way <a href="#compat">real GameBanana mods</a> are laid out (art in <code>shared/</code> and level folders, files anywhere under <code>data/</code>, mods unzipped one folder too deep), stages built by a V-Slice script get their pictures, characters stand where V-Slice puts them, and camera moves and zooms are kept (<a href="#camera-events">Focus Camera / Zoom Camera</a>). The base game's songs, characters and stages now ship with Vortex, and a mod can <a href="#setup">hide base-game weeks</a>.</div>
+  <div class="callout tip"><strong>New in 0.5:</strong> Vortex plays mods made for <a href="#compat">V-Slice, Codename Engine, FPS Plus, Forever Engine and older Psych Engine versions</a>, a <a href="#vslice-converter">V-Slice Converter</a>, a <a href="#menu-themes">Menu Editor</a> with Vortex, Psych Classic and <a href="#custom-menus">custom</a> menu themes, and a check for <a href="#build-verification">official builds</a>. The Chart Editor's Strumlines menu was removed (strumlines are set up in the chart file).</div>
+  <div class="callout tip"><strong>New in 0.4:</strong> <a href="#strumlines">strumlines</a> (any number of arrow rows, several singers per row, a singer for each note), new Main Menu, Story Mode and Freeplay screens, <a href="#videos">videos</a> from your mod's <code>videos/</code> folder, and fixes for Camera Flash, mod weeks in Story Mode and the Week Editor's save (see <a href="#troubleshooting">Troubleshooting</a>).</div>
+  <div class="callout tip"><strong>New in 0.3:</strong> the <a href="#achievements">Achievement Editor</a> and an <code>achievements/</code> folder for mods, a remastered Developer menu (press <strong>7</strong> on the main menu), and a fix for vocals going silent after pausing some songs (see <a href="#troubleshooting">Troubleshooting</a>).</div>
+  <p>Everything on this page is implemented in the engine as it ships. Anything marked <span class="tag psych">Psych</span> works the same way as in Psych Engine, and the <a href="https://github.com/ShadowMario/FNF-PsychEngine/wiki">Psych Engine wiki</a> has the full list of its standard Lua functions. Anything marked <span class="tag vortex">Vortex</span> is new in Vortex Engine and documented in full here.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="setup">
+  <h2>Setting up a mod</h2>
+  <p class="section-lead">A mod is a folder inside <code>mods/</code>, next to <code>VortexEngine.exe</code>. Create a folder for your mod and add only the subfolders you need.</p>
+<div class="tree"><b>mods/</b>
+└─ <b>My-Mod/</b>
+   ├─ pack.json                <i>name, description, "runsGlobally", "hideBaseGameWeeks"</i>
+   ├─ weeks/                   <i>week files (optional, see below)</i>
+   ├─ data/&lt;song&gt;/             <i>charts + song scripts</i>
+   ├─ songs/&lt;song&gt;/            <i>Inst.ogg, Voices.ogg ...</i>
+   ├─ characters/  stages/  images/  sounds/  music/
+   ├─ scripts/                 <i>Lua/HScript that runs in every song</i>
+   ├─ custom_events/           <i>your chart events</i>
+   ├─ custom_notetypes/
+   ├─ <b>states/</b>                  <i>Vortex: custom states + menu scripts (+ Global.lua)</i>
+   ├─ <b>classes/</b>                 <i>Vortex: scripted classes</i>
+   ├─ <b>lib/</b>                     <i>Vortex: shared Lua modules for require()</i>
+   ├─ <b>achievements/</b>            <i>Vortex: &lt;id&gt;.json + .png icon + optional .lua script</i>
+   └─ data/<b>keybinds.json</b>         <i>Vortex: your mod's own rebindable keys</i></div>
+  <ul>
+    <li>Mods are switched on and off in the <strong>Mods</strong> menu. A new folder is switched on automatically.</li>
+    <li><strong>Songs without a week:</strong> a song that has a chart in <code>data/&lt;song&gt;/</code> but isn't in any week file still shows up in Freeplay and Story Mode, in an automatic week named after the mod.</li>
+    <li><span class="tag vortex">Vortex</span> <strong>Hiding the base game's weeks:</strong> the base game (Tutorial to Weekend 1) ships with Vortex. A mod that replaces it can hide those weeks from Story Mode and Freeplay while it's switched on, with <code>"hideBaseGameWeeks": true</code> (all of them) or a list like <code>"hideBaseGameWeeks": ["tutorial", "week1"]</code> in its <code>pack.json</code>. Deleting files from the game's <code>assets/</code> folder isn't a reliable way to do this (a rebuild copies them back).</li>
+    <li>When you start the game, Vortex writes <code>vortex_mods_log.txt</code> next to the exe. It lists every mod, whether it's on, how many songs, characters, stages and events it has, and whether each song's <code>Inst</code> file was found.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="script-types">
+  <h2>Where scripts go</h2>
+  <p class="section-lead">Every script can be Lua (<code>.lua</code>) or HScript (<code>.hx</code>). Where you put the file decides when it runs.</p>
+  <table>
+    <thead><tr><th>Path in your mod</th><th>Runs</th><th></th></tr></thead>
+    <tbody>
+      <tr><td><code>scripts/*.lua</code></td><td>In every song</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>data/&lt;song&gt;/*.lua</code></td><td>In that song only</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>stages/&lt;stage&gt;.lua</code></td><td>When that stage is used</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>characters/&lt;name&gt;.lua</code></td><td>When that character is in the song</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>custom_events/&lt;Event&gt;.lua</code></td><td>When the event is in the chart, or the first time a script fires it</td><td><span class="tag psych">Psych</span> <span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>custom_notetypes/&lt;Type&gt;.lua</code></td><td>When the chart uses that note type, or the first time <code>spawnNote</code> makes one</td><td><span class="tag psych">Psych</span> <span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>states/&lt;BuiltInState&gt;.lua</code></td><td>Alongside a built-in screen, e.g. <code>states/MainMenuState.lua</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>states/&lt;YourState&gt;.lua</code></td><td>As a whole screen, opened with <code>switchState('YourState')</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>classes/&lt;Class&gt;.lua</code></td><td>When you create an object from it with <code>createScripted</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>states/Global.lua</code></td><td>In <em>every</em> menu and custom state, before that state's own script</td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>lib/&lt;name&gt;.lua</code></td><td>Never by itself: other scripts load it with <code>require('name')</code></td><td><span class="tag vortex">Vortex</span></td></tr>
+      <tr><td><code>achievements/&lt;id&gt;.lua</code></td><td>In every song, while that achievement is still locked</td><td><span class="tag vortex">Vortex</span></td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><strong>Which mod's files are used?</strong> In songs, it's the mod the song belongs to, plus any mods with <code>"runsGlobally": true</code> in their <code>pack.json</code>. For <code>states/</code> and <code>classes/</code>, Vortex looks in <em>every enabled mod</em> (the current one first). That's because in menus only the top mod is "current".</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="debugging">
+  <h2>Debugging</h2>
+  <ul>
+    <li><span class="tag vortex">Vortex</span> <strong>Every script error goes to <code>vortex_script_log.txt</code></strong> next to the exe: Lua and HScript, in songs and menus. Lua errors include the file, the line and the full stack traceback:
+<pre><code>23:38:29 [ERROR] Lua: mods/My-Mod/states/Gallery.lua (onUpdate)
+  mods/My-Mod/states/Gallery.lua:59: attempt to index local 'broken' (a nil value)
+  stack traceback:
+  	mods/My-Mod/states/Gallery.lua:59: in function &lt;mods/My-Mod/states/Gallery.lua:53&gt;</code></pre></li>
+    <li><span class="tag vortex">Vortex</span> A runtime error is also shown on screen <strong>once</strong>, in red. Psych only showed Lua errors with <code>luaDebugMode</code> on, so broken scripts failed silently. The same error is never repeated, so an error in <code>onUpdate</code> doesn't flood the screen or the log 60 times a second.</li>
+    <li>Put <code>luaDebugMode = true</code> at the top of a Lua script to print <em>every</em> occurrence of its errors, plus Psych's extra warnings.</li>
+    <li><code>debugPrint('text')</code> shows a message on screen. It works everywhere: in songs, in menus and in custom states. Outside songs the messages appear top-left and fade after about 6 seconds.</li>
+    <li><span class="tag vortex">Vortex</span> <code>writeToScriptLog('text')</code> adds your own line to the log. <code>getScriptErrorCount()</code> tells you how many different errors happened this session.</li>
+    <li><span class="tag vortex">Vortex</span> Press <strong>F3</strong> for the developer overlay. In a song it shows how many notes are on screen or waiting, how long the chart took to build, how many Lua and HScript scripts are running, and the script error count. <strong>F7</strong> reloads the song and its scripts, and shows already-seen errors again.</li>
+    <li>If the game hits an error it can't handle, it goes back to the main menu and shows a red message instead of closing. Full details go to the <code>crash/</code> folder next to the exe.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="lua-api">
+  <h2>Lua API</h2>
+  <p class="section-lead">All of Psych Engine 1.0's Lua functions are available and behave the same, including Psych's own <code>createInstance</code> and <code>callMethod</code> for Haxe classes. Vortex changes what's described below.</p>
+
+  <h3>Lua now runs outside songs <span class="tag vortex">Vortex</span></h3>
+  <p>In Psych, Lua scripts only exist during a song. In Vortex, the same Lua runs in menus, custom states and scripted classes. These functions work everywhere:</p>
+  <ul>
+    <li>Sprites and text: <code>makeLuaSprite</code>, <code>makeAnimatedLuaSprite</code>, <code>makeGraphic</code>, <code>addLuaSprite</code>, <code>removeLuaSprite</code>, <code>makeLuaText</code>, <code>addLuaText</code>, <code>setTextString</code>, <code>setTextColor</code>, <code>setTextSize</code> and the others.</li>
+    <li>Properties: <code>getProperty</code> and <code>setProperty</code>, including the <code>'tag.scale.x'</code> style.</li>
+    <li>Tweens, timers and sounds: <code>doTweenX</code> and friends, <code>runTimer</code>, <code>playSound</code>, <code>playMusic</code>. Their <code>onTweenCompleted</code>, <code>onTimerCompleted</code> and <code>onSoundFinished</code> callbacks reach the scripts of whatever screen is running.</li>
+    <li>Input: <code>keyboardJustPressed</code>, <code>keyboardPressed</code>, the gamepad functions and <code>mouseClicked</code>.</li>
+    <li><code>debugPrint</code>, <code>getModSetting</code>.</li>
+    <li>Talking to other scripts: <code>callOnScripts</code>, <code>callOnLuas</code>, <code>callOnHScript</code>, <code>setOnScripts</code>, <code>setOnLuas</code>, <code>setOnHScript</code>, <code>callScript</code>, <code>isRunning</code>, <code>addLuaScript</code>, <code>addHScript</code>, <code>removeLuaScript</code>, <code>getRunningScripts</code>. Outside songs they reach the scripts of the current screen. In Psych they crashed the game there.</li>
+    <li>Controls: <code>keyJustPressed</code>, <code>keyPressed</code> and <code>keyReleased</code> work in menus too (they crashed there), and accept any bind name, including <a href="#keybinds">your mod's own key binds</a>.</li>
+    <li><code>startTween</code> with <code>onUpdate</code> / <code>onStart</code> / <code>onComplete</code> callbacks, and <a href="#substates">custom substates</a>.</li>
+  </ul>
+  <p>Song-only functions such as <code>characterDance</code>, <code>setHealth</code> or note functions still need a song. In a menu they fail with a script error (written to <code>vortex_script_log.txt</code>) instead of crashing the game.</p>
+  <div class="callout"><code>addLuaSprite(tag, false)</code> normally places the sprite behind the characters. Outside a song there are no characters, so the sprite is simply added on top.</div>
+
+  <h3>New global variables <span class="tag vortex">Vortex</span></h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>inSong</code></td><td><code>true</code> when the script is running during a song.</td></tr>
+      <tr><td><code>curState</code></td><td>Name of the screen the script was started on, e.g. <code>'MainMenuState'</code> or <code>'ScriptedState'</code>.</td></tr>
+      <tr><td><code>vortexVersion</code>, <code>engineName</code></td><td>The engine's version and name, e.g. <code>'0.1.0'</code> and <code>'Vortex Engine'</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>Song variables like <code>songName</code>, <code>bpm</code> and <code>difficulty</code> are only set while a song is loaded.</p>
+
+  <h3>New functions <span class="tag vortex">Vortex</span></h3>
+  <p>Custom states, state switching and scripted classes each have their own section below. The <a href="#reference">function reference</a> lists every new function in one table.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="custom-states">
+  <h2>Custom states <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A custom state is a whole screen made from one script, such as a gallery, a sound test, a cutscene menu or a minigame. Put it in <code>states/&lt;Name&gt;.lua</code> (or <code>.hx</code>) and open it from any script.</p>
+
+<pre data-file="mods/My-Mod/states/Gallery.lua"><code>function onCreate()
+    makeLuaSprite('bg', '', 0, 0)
+    makeGraphic('bg', 1280, 720, '120C24')
+    addLuaSprite('bg')
+
+    makeLuaText('title', 'GALLERY', 1280, 0, 40)
+    setTextSize('title', 40)
+    addLuaText('title')
+
+    local args = getStateArgs()          -- whatever switchState() passed
+    debugPrint('opened with: ' .. tostring(args[1]))
+end
+
+function onUpdate(elapsed)
+    if keyboardJustPressed('ESCAPE') then
+        switchState('MainMenuState')     -- back to a built-in screen
+    end
+end</code></pre>
+
+  <p>Open it from anywhere, whether a song script, an event, a menu script or another custom state:</p>
+<pre><code>switchState('Gallery')                         -- no arguments
+switchState('Gallery', {'hello', 42})          -- arguments, read with getStateArgs()</code></pre>
+
+  <h3>Callbacks</h3>
+  <table>
+    <thead><tr><th>Function</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td><code>onCreate()</code></td><td>When the screen opens.</td></tr>
+      <tr><td><code>onCreatePost()</code></td><td>On the first frame, after everything is created.</td></tr>
+      <tr><td><code>onUpdate(elapsed)</code></td><td>Every frame, before the screen updates.</td></tr>
+      <tr><td><code>onUpdatePost(elapsed)</code></td><td>Every frame, after the screen updates.</td></tr>
+      <tr><td><code>onDestroy()</code></td><td>When leaving the screen.</td></tr>
+      <tr><td><code>onTimerCompleted</code>, <code>onTweenCompleted</code>, <code>onSoundFinished</code></td><td>Same as in songs.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Opening built-in screens</h3>
+  <p><code>switchState</code> also opens the engine's own screens by name: <code>MainMenuState</code>, <code>FreeplayState</code>, <code>StoryMenuState</code>, <code>OptionsState</code>, <code>CreditsState</code>, <code>TitleState</code> and <code>ModsMenuState</code>. If your mod has a custom state with the same name, yours is opened instead. Switching away from a song stops its music, like "Exit to menu" does.</p>
+  <div class="callout warn">If nothing has that name, <code>switchState</code> returns <code>false</code>, prints a message and stays on the current screen. It never leaves you on a black screen.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="state-scripts">
+  <h2>State scripts (scripting the built-in menus) <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Give a script the name of a built-in screen and it runs <em>alongside</em> that screen. The screen keeps working normally, and your script can add things to it. This is how you add a way into your custom states.</p>
+<pre data-file="mods/My-Mod/states/MainMenuState.lua"><code>function onCreatePost()
+    makeLuaText('hint', 'Press G for the gallery', 600, 660, 660)
+    addLuaText('hint')
+end
+
+function onUpdate(elapsed)
+    if keyboardJustPressed('G') then
+        switchState('Gallery')
+    end
+end</code></pre>
+  <p>The callbacks are the same as for <a href="#custom-states">custom states</a>. Use <code>onCreatePost</code> to draw on top of the screen's own graphics. The file name must match the screen's name, for example <code>MainMenuState</code>, <code>FreeplayState</code>, <code>StoryMenuState</code>, <code>CreditsState</code> or <code>TitleState</code>. Songs don't use this: during a song, use <code>scripts/</code> or <code>data/&lt;song&gt;/</code> as in Psych.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="scripted-classes">
+  <h2>Scripted classes <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A scripted class is a reusable object written once in <code>classes/&lt;Name&gt;.lua</code> (or <code>.hx</code>). You can create as many copies ("instances") of it as you want, in songs, menus or custom states. Each instance is a normal sprite saved under its tag, so every sprite function works on it.</p>
+
+<pre data-file="mods/My-Mod/classes/Bouncer.lua"><code>-- "self" is the instance's tag, so use it like any sprite tag
+local timeAlive = {}
+
+function new(self, color)
+    makeGraphic(self, 120, 120, color or 'FFFFFF')
+    addLuaSprite(self, true)
+    timeAlive[self] = 0
+end
+
+function update(self, elapsed)
+    timeAlive[self] = timeAlive[self] + elapsed
+    setProperty(self .. '.y', 300 + math.sin(timeAlive[self] * 3) * 60)
+end
+
+function jump(self, height)          -- your own method
+    setProperty(self .. '.scale.x', 1.5)
+    setProperty(self .. '.scale.y', 1.5)
+    return 'jumped ' .. height
+end</code></pre>
+
+  <p>Use it from any script:</p>
+<pre><code>createScripted('Bouncer', 'red', 300, 300, 'FF4F7A')    -- class, tag, x, y, then up to 5 values for new()
+createScripted('Bouncer', 'teal', 500, 300, '35D0C0')
+
+local result = callScripted('teal', 'jump', 120)       -- call your own method, get its return value
+setProperty('red.alpha', 0.5)                          -- instances are normal sprites
+
+if scriptedExists('red') then destroyScripted('red') end</code></pre>
+
+  <h3>Class functions</h3>
+  <p>All of these are optional. The instance always comes first. In Lua that's its tag; in HScript it's the sprite itself.</p>
+  <table>
+    <thead><tr><th>Function</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td><code>new(self, ...)</code></td><td>When <code>createScripted</code> makes the instance. It receives the extra values you passed.</td></tr>
+      <tr><td><code>update(self, elapsed)</code></td><td>Every frame.</td></tr>
+      <tr><td><code>beatHit(self, beat)</code></td><td>Every beat, while music is driving the beat clock (in songs).</td></tr>
+      <tr><td><code>stepHit(self, step)</code></td><td>Every step, under the same conditions.</td></tr>
+      <tr><td><code>destroy(self)</code></td><td>When <code>destroyScripted</code> removes the instance.</td></tr>
+      <tr><td><em>any script callback</em></td><td><span class="tag vortex">New</span> <code>onBeatHit(self)</code>, <code>goodNoteHit(self, ...)</code>, <code>onEvent(self, ...)</code>, <code>onKeyPress(self, key)</code> and so on, plus your own callbacks sent with <code>callOnScripts</code> / <code>callOnLuas</code>. The class gets the same arguments as normal scripts, with <code>self</code> in front.</td></tr>
+      <tr><td><em>anything else</em></td><td>Called with <code>callScripted(tag, 'name', ...)</code>.</td></tr>
+    </tbody>
+  </table>
+<pre data-file="mods/My-Mod/classes/Pinger.lua"><code>function new(self, size)
+    makeGraphic(self, size or 20, size or 20, 'FF00FF')
+    addLuaSprite(self)
+end
+
+function onBeatHit(self)            -- song / menu callbacks reach classes too
+    setProperty(self .. '.angle', curBeat * 15)   -- curBeat, crochet... stay up to date in classes
+end
+
+function ping(self, value)          -- a custom callback: callOnScripts('ping', {5}) reaches every instance
+    debugPrint(self .. ' got ' .. tostring(value))
+end</code></pre>
+  <ul>
+    <li>Each class script is loaded <strong>once per screen</strong> and shared by all its instances. Lua variables at the top of the file are shared too, so store per-instance data in a table keyed by <code>self</code>, as above.</li>
+    <li><code>new</code> doesn't add the sprite to the screen by itself. Call <code>addLuaSprite(self, true)</code> (Lua) or <code>FlxG.state.add(self)</code> (HScript) when you want it shown.</li>
+    <li>Instances are cleared when the screen changes. Removing one with <code>removeLuaSprite(tag, true)</code> also stops its <code>update</code>.</li>
+  </ul>
+
+  <h3>HScript class</h3>
+<pre data-file="mods/My-Mod/classes/Spinner.hx"><code>function new(self, size) {
+    self.makeGraphic(size, size, FlxColor.YELLOW);
+    FlxG.state.add(self);
+}
+
+function update(self, elapsed) {
+    self.angle += elapsed * 120;
+}</code></pre>
+<pre><code>createScripted('Spinner', 'spin', 800, 280, 120)   -- Lua: the HScript class works the same way</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="global-scripts">
+  <h2>Global scripts &amp; variables <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead"><code>states/Global.lua</code> (or <code>.hx</code>) runs in every menu and custom state, right before the screen's own state script. Use <code>getStateName()</code> to react to specific screens. For songs, keep using <code>scripts/</code>.</p>
+<pre data-file="mods/My-Mod/states/Global.lua"><code>function onCreatePost()
+    setGlobalVar('screensVisited', getGlobalVar('screensVisited', 0) + 1)
+    if getStateName() == 'MainMenuState' then
+        debugPrint('Screens visited: ' .. getGlobalVar('screensVisited'))
+    end
+end</code></pre>
+  <p><strong>Global variables</strong> keep their value when the screen changes and between songs, for the whole session. They're not saved to disk; use <code>initSaveData</code> for that. <code>setVar</code> / <code>getVar</code> still work as in Psych and are cleared on every screen change.</p>
+  <table>
+    <thead><tr><th>Function</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>setGlobalVar(name, value)</code></td><td>Stores a value. Returns it.</td></tr>
+      <tr><td><code>getGlobalVar(name, default?)</code></td><td>The value, or <code>default</code> (or <code>nil</code>) if it was never set.</td></tr>
+      <tr><td><code>globalVarExists(name)</code></td><td><code>true</code> if it was set.</td></tr>
+      <tr><td><code>removeGlobalVar(name)</code></td><td>Forgets it.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section id="require">
+  <h2>Shared code with require() <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Put code you use in several scripts in <code>lib/</code> and load it with Lua's normal <code>require</code>. Files in <code>lib/</code> never run by themselves.</p>
+<pre data-file="mods/My-Mod/lib/mathutil.lua"><code>local M = {}
+function M.double(x) return x * 2 end
+return M</code></pre>
+<pre data-file="mods/My-Mod/scripts/anything.lua"><code>local mathutil = require('mathutil')
+debugPrint(mathutil.double(21))   -- 42</code></pre>
+  <p><code>require('name')</code> looks in this order: <code>mods/&lt;your mod&gt;/lib/name.lua</code>, <code>mods/&lt;your mod&gt;/lib/name/init.lua</code>, <code>mods/lib/name.lua</code>, the script's own folder, then Lua's usual places. Each script gets its own copy of a module, loaded once.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="substates">
+  <h2>Custom substates <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Psych's <code>openCustomSubstate</code> (a screen on top of the current one, like a popup) now works in menus and custom states too, not only in songs. The current screen's scripts get its callbacks.</p>
+<pre data-file="mods/My-Mod/states/Gallery.lua"><code>local frame = 0
+function onUpdate(elapsed)
+    frame = frame + 1
+    if frame == 2 then openCustomSubstate('info') end   -- after the screen's fade-in has started
+end
+
+function onCustomSubstateCreate(name)
+    makeLuaText('infoText', 'Press ENTER to close', 600, 340, 340)
+    addLuaText('infoText')
+    insertToCustomSubstate('infoText')
+end
+
+function onCustomSubstateUpdate(name, elapsed)
+    if keyboardJustPressed('ENTER') then closeCustomSubstate() end
+end</code></pre>
+  <div class="callout warn">Don't open a substate from <code>onCreate</code>: the screen's fade-in transition opens right after and replaces it. Open it on a later frame, as above, or from input.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="hscript">
+  <h2>HScript (.hx)</h2>
+  <p class="section-lead">Any script above can be written in HScript (Haxe syntax) by using <code>.hx</code> instead of <code>.lua</code>. HScript has direct access to Flixel and engine classes (<code>FlxG</code>, <code>FlxSprite</code>, <code>FlxTween</code>, <code>Paths</code>...), as in Psych Engine 1.0.</p>
+  <p>The new Vortex functions are available in HScript too. There, arguments are passed as an array:</p>
+<pre><code>switchState('Gallery', ['hello', 42]);
+var spr = createScripted('Bouncer', 'red', 300, 300, ['FF4F7A']);  // returns the sprite
+callScripted('red', 'jump', [120]);
+var sameSprite = getScripted('red');
+var args = getStateArgs();</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="achievements">
+  <h2>Achievement Editor <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Make achievements for your mod without writing JSON by hand: a name, a description, an icon, an ID, when it unlocks, and an optional Lua script. They show up in the game's Achievements menu and pop up when unlocked, like the built-in ones, and progress is saved.</p>
+  <ol>
+    <li>On the main menu press <strong>7</strong> to open the <strong>Developer</strong> menu.</li>
+    <li>Pick your mod with <strong>Left / Right</strong> (the bar at the bottom shows the loaded mod folder).</li>
+    <li>Choose <strong>Achievement Editor</strong> (the last entry) with Enter or the mouse.</li>
+  </ol>
+  <p>The editor saves into <code>mods/&lt;your mod&gt;/achievements/</code>, or <code>mods/achievements/</code> with no mod selected. The left side shows a live preview card (icon, name, description, locked / unlocked, progress) and every achievement in that folder. The right side has three tabs:</p>
+  <table>
+    <thead><tr><th>Tab</th><th>Fields</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Achievement</strong></td><td><em>Load from this folder</em>; <em>ID</em> (also the file name: lowercase letters, numbers, <code>-</code> and <code>_</code>; the editor refuses an ID another mod already uses); <em>Name</em>; <em>Description</em>; <em>Icon file</em> (a PNG in the same folder, empty = <code>&lt;id&gt;.png</code>); <em>Hidden until unlocked</em>; <em>Progress goal</em> (0 = none, e.g. 5 = "finish 5 songs"). Buttons: <strong>New</strong>, <strong>Save</strong>, <strong>Test Popup</strong>, <strong>Reset Progress</strong> (relocks it in your own save, for testing).</td></tr>
+      <tr><td><strong>Unlock</strong></td><td><em>Unlock when</em>: <code>manual</code>, <code>song_complete</code> or <code>week_complete</code>; <em>Song</em>; <em>Week file</em>; <em>Max misses</em> (-1 = any); <em>Min accuracy %</em>; <em>Min score</em>; <em>Practice Mode counts too</em>.</td></tr>
+      <tr><td><strong>Script</strong></td><td>Shows whether the achievement has a script and the functions it can use. <strong>Create Lua script</strong> / <strong>Create HScript</strong> write a working example you can edit.</td></tr>
+    </tbody>
+  </table>
+  <h3>When achievements unlock</h3>
+  <table>
+    <thead><tr><th>Unlock type</th><th>Unlocks when</th></tr></thead>
+    <tbody>
+      <tr><td><code>manual</code></td><td>Only a script unlocks it: <code>unlockAchievement(id)</code> (or <code>addAchievementScore</code> with a progress goal).</td></tr>
+      <tr><td><code>song_complete</code></td><td>A song is finished. <code>song</code> empty = any song; names are matched like song folders, so <code>Example Song</code> and <code>example-song</code> are the same.</td></tr>
+      <tr><td><code>week_complete</code></td><td>The last song of the week <code>week</code> (its week file name) is finished in Story Mode. <em>Max misses</em> and <em>Min score</em> count the whole week.</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>Conditions are checked when a song ends. <strong>Botplay and the Chart Editor never unlock achievements</strong>, and Practice Mode only counts with <em>Practice Mode counts too</em> on.</li>
+    <li>With a <em>Progress goal</em>, every finish that meets the conditions adds 1, and the achievement unlocks at the goal. The Achievements menu shows the progress.</li>
+    <li>Unlocks and progress are saved in the player's save file straight away, under the achievement's ID.</li>
+    <li>Psych Engine's way still works unchanged: <code>data/achievements.json</code> with icons in <code>images/achievements/&lt;save&gt;.png</code>.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="achievement-files">
+  <h2>Achievement files <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">The editor writes plain files, so you can also make or edit them by hand. Each achievement is up to three files with the same name, its ID:</p>
+<div class="tree"><b>mods/My-Mod/achievements/</b>
+├─ first-steps.json      <i>name, description, unlock condition</i>
+├─ first-steps.png       <i>icon (optional; 150&times;150 looks best)</i>
+├─ combo-starter.json
+├─ combo-starter.png
+└─ combo-starter.lua     <i>script, optional (or .hx)</i></div>
+<pre data-file="mods/My-Mod/achievements/first-steps.json"><code>{
+	"name": "First Steps",
+	"description": "Finish the Example Song.",
+	"hidden": false,
+	"unlock": {
+		"type": "song_complete",
+		"song": "example-song",
+		"maxMisses": -1,
+		"minAccuracy": 0,
+		"minScore": 0,
+		"allowPractice": false
+	}
+}</code></pre>
+  <table>
+    <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>name</code>, <code>description</code></td><td>Shown in the popup and the Achievements menu.</td></tr>
+      <tr><td><code>hidden</code></td><td><code>true</code> hides it in the menu until it's unlocked.</td></tr>
+      <tr><td><code>icon</code></td><td>Optional PNG file name in this folder. Without it, <code>&lt;id&gt;.png</code> is used, then Psych's <code>images/achievements/&lt;id&gt;.png</code>.</td></tr>
+      <tr><td><code>maxScore</code></td><td>Optional progress goal (whole numbers). Leave it out or use 0 for a normal achievement.</td></tr>
+      <tr><td><code>unlock</code></td><td><code>type</code> (<code>manual</code> / <code>song_complete</code> / <code>week_complete</code>), <code>song</code>, <code>week</code>, <code>maxMisses</code>, <code>minAccuracy</code>, <code>minScore</code>, <code>allowPractice</code>. Missing = <code>manual</code>.</td></tr>
+      <tr><td><code>script</code></td><td>Optional script file name in this folder. Without it, <code>&lt;id&gt;.lua</code> or <code>&lt;id&gt;.hx</code> is used if it exists.</td></tr>
+    </tbody>
+  </table>
+  <p>Achievements from every enabled mod are loaded. If two use the same ID, the first one is kept and the other is reported in <code>vortex_script_log.txt</code>.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="achievement-scripts">
+  <h2>Achievement scripts <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">For conditions the Unlock tab can't express (a combo, a secret, a mechanic), attach a script. <code>achievements/&lt;id&gt;.lua</code> runs in <strong>every song while the achievement is still locked</strong>, and it doesn't load at all once it's unlocked. It can use every normal song callback and function, plus the variable <code>achievementId</code>.</p>
+<pre data-file="mods/My-Mod/achievements/combo-starter.lua"><code>-- Attached to the achievement "combo-starter" (same file name as combo-starter.json).
+-- It runs in every song while the achievement is still locked; achievementId is "combo-starter".
+
+function goodNoteHit(id, direction, noteType, isSustain)
+    if botPlay then return end -- botplay shouldn't earn achievements
+    if getProperty('combo') >= 20 then
+        unlockAchievement(achievementId)
+    end
+end</code></pre>
+  <h3>Lua functions</h3>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>unlockAchievement(id)</code></td><td>id</td><td>Unlocks it, shows the popup and saves. <span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>isAchievementUnlocked(id)</code></td><td>bool</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>achievementExists(id)</code></td><td>bool</td><td><span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>getAchievementScore(id)</code> / <code>setAchievementScore(id, value)</code> / <code>addAchievementScore(id, value)</code></td><td>number</td><td>Progress of an achievement with a progress goal; reaching the goal unlocks it. <span class="tag psych">Psych</span></td></tr>
+      <tr><td><code>getAchievementInfo(id)</code></td><td>table</td><td><span class="tag vortex">Vortex</span> <code>id</code>, <code>name</code>, <code>description</code>, <code>hidden</code>, <code>unlocked</code>, <code>score</code>, <code>maxScore</code>, <code>mod</code>, <code>unlockType</code>, or <code>nil</code> if there's no such achievement.</td></tr>
+    </tbody>
+  </table>
+  <p>These work in any script, not only achievement scripts. In HScript (<code>&lt;id&gt;.hx</code>) use <code>Achievements.unlock(achievementId)</code> after <code>import backend.Achievements;</code>. The editor's <strong>Create HScript</strong> button writes an example.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="achievement-example">
+  <h2>Working example <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">The bundled <code>Vortex-Example-Mod</code> has three achievements in <code>mods/Vortex-Example-Mod/achievements/</code>, one of each kind. Open them in the Achievement Editor to see how they're set up.</p>
+  <div class="grid-2">
+    <div class="card"><h4>First Steps</h4><p><code>song_complete</code> for <code>example-song</code>. Play the Example Song to the end without botplay.</p></div>
+    <div class="card"><h4>Combo Starter</h4><p><code>manual</code> + <code>combo-starter.lua</code> (above): unlocks at a 20 combo.</p></div>
+    <div class="card"><h4>Song Collector</h4><p><code>song_complete</code> for any song with a progress goal of 3 (<code>"maxScore": 3</code>).</p></div>
+    <div class="card"><h4>Mod template</h4><p><code>mods/modTemplate.zip</code> has an <code>achievements/</code> folder with a readme and two examples to copy.</p></div>
+  </div>
+<pre data-file="mods/Vortex-Example-Mod/achievements/song-collector.json"><code>{
+	"name": "Song Collector",
+	"description": "Finish 3 songs (any songs).",
+	"hidden": false,
+	"maxScore": 3,
+	"maxDecimals": 0,
+	"unlock": {
+		"type": "song_complete",
+		"song": "",
+		"maxMisses": -1,
+		"minAccuracy": 0,
+		"minScore": 0,
+		"allowPractice": false
+	}
+}</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="strumlines">
+  <h2>Strumlines <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A strumline is a row of 4 arrows with its own notes and its own characters, like in Codename Engine. A song can have up to 8. Use them for duets, a third singer, backup singers, or two players' worth of notes.</p>
+  <p>Every song starts with the two Psych rows: <strong>strumline 1</strong> is the player (boyfriend) and <strong>strumline 2</strong> is the opponent (dad). Charts made in Psych Engine have exactly these two and play the same as before; nothing is added to them unless you add a strumline.</p>
+  <table>
+    <thead><tr><th>Type</th><th>Who hits its notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>player</code></td><td>You. Its notes count for score, health, combo and misses, like boyfriend's.</td></tr>
+      <tr><td><code>opponent</code></td><td>The CPU, like dad's notes.</td></tr>
+      <tr><td><code>additional</code></td><td>The CPU too, but it never moves the camera or touches the opponent's vocals. Meant for backup singers.</td></tr>
+    </tbody>
+  </table>
+  <h3>In the Chart Editor</h3>
+  <ul>
+    <li>The grid shows one group of 4 columns per strumline, with the main singer's icon above it.</li>
+    <li>To choose who sings a note, select it and use <strong>Sung by</strong> in the <strong>Note</strong> tab. A note sung by one singer gets a small <strong>S1</strong>, <strong>S2</strong>... badge. A note without a badge is sung by every singer of its strumline.</li>
+    <li>Strumlines themselves (how many, their type, singers and arrow position) are set in the chart file, below. The Strumlines menu that 0.4 had in the editor's top bar was removed in 0.5.</li>
+  </ul>
+  <h3>In the chart file</h3>
+  <p>Strumlines are the <code>strumLines</code> list in the chart (the editor keeps it when it saves). Strumline 3 uses columns 8-11, strumline 4 uses 12-15, and so on. A note's 5th value is its singer (0 = first); leave it out, or use -1, for all singers.</p>
+<pre data-file="mods/My-Mod/data/my-song/my-song.json"><code>"strumLines": [
+    {"name": "Player", "type": "player", "characters": [{"name": "bf"}, {"name": "pico", "position": "boyfriend", "x": 260}]},
+    {"name": "Opponent", "type": "opponent", "characters": [{"name": "dad"}]},
+    {"name": "Backup", "type": "additional", "strumScale": 0.5,
+     "characters": [{"name": "spooky", "position": "gf", "x": -300, "flipX": true}]}
+],
+"notes": [{"sectionNotes": [
+    [2400, 0, 0, "", 1],
+    [4800, 9, 0]
+]}]</code></pre>
+  <ul>
+    <li>The first note (column 0, 5th value 1) is on strumline 1 and only pico sings it. The second (column 9) is on strumline 3, sung by everyone on it.</li>
+    <li>For strumlines 1 and 2 the first character is always the song's player 1 / player 2, so <strong>Change Character</strong> events keep working.</li>
+    <li>Other fields: <code>visible</code>, <code>strumX</code> / <code>strumY</code> (screen position of the left arrow; leave them out for automatic) and <code>strumScale</code> (1 = normal size; extra strumlines default to 0.5).</li>
+    <li>Extra singers are in <code>game.variables</code> as <code>strumLine2_char0</code>, <code>strumLine0_char1</code>... so <code>playAnim</code>, <code>setProperty</code> and friends work on them.</li>
+    <li>Notes for a strumline the chart doesn't define are skipped and reported once in <code>vortex_script_log.txt</code>.</li>
+    <li>Known limit: the Chart Editor's own test-play (Enter in the editor) shows extra strumlines' notes on the opponent's side. Play the song normally to see them.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="strumline-api">
+  <h2>Strumline functions <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Available in Lua and HScript during a song. Strumlines are numbered from 0: <code>0</code> is the player, <code>1</code> the opponent.</p>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>getStrumLineCount()</code></td><td>int</td><td>How many strumlines the song has (2 for a Psych chart).</td></tr>
+      <tr><td><code>getStrumLineInfo(index)</code></td><td>table</td><td><code>index</code>, <code>name</code>, <code>type</code>, <code>visible</code>, <code>scale</code>, <code>characters</code> (tags) and <code>names</code> (character names).</td></tr>
+      <tr><td><code>setStrumLineVisible(index, visible)</code></td><td>bool</td><td>Shows or hides its arrows and notes.</td></tr>
+      <tr><td><code>setStrumLinePosition(index, x?, y?)</code></td><td>bool</td><td>Moves its arrows so the left one is at x, y. Pass <code>nil</code> to keep one of them.</td></tr>
+      <tr><td><code>getStrumLineCharacters(index)</code></td><td>table</td><td>Tags of its characters (<code>boyfriend</code> / <code>dad</code> for the first one on lines 0 and 1).</td></tr>
+      <tr><td><code>addStrumLineCharacter(index, name, position?, x?, y?)</code></td><td>tag</td><td>Adds a singer. <code>position</code> is <code>boyfriend</code>, <code>dad</code>, <code>gf</code> or <code>custom</code>.</td></tr>
+      <tr><td><code>removeStrumLineCharacter(index, charIndex)</code></td><td>bool</td><td>Removes a singer. Boyfriend and dad can't be removed this way (use the Change Character event).</td></tr>
+      <tr><td><code>strumLineSing(index, direction, suffix?)</code></td><td>bool</td><td>Makes all its singers play a sing animation (direction 0-3, suffix like <code>-alt</code>).</td></tr>
+    </tbody>
+  </table>
+<pre data-file="mods/My-Mod/data/my-song/script.lua"><code>function onCreatePost()
+    if getStrumLineCount() > 2 then
+        setStrumLinePosition(2, 60, 520)   -- move strumline 3's arrows
+    end
+end
+
+function goodNoteHit(id, direction, noteType, isSustain)
+    -- note.strumLine and note.singer are also readable with getPropertyFromGroup
+    local line = getPropertyFromGroup('notes', id, 'strumLine')
+end</code></pre>
+  <p>Notes have two new fields: <code>strumLine</code> (which strumline they belong to) and <code>singer</code> (-1 = all singers). Psych's <code>mustPress</code>, <code>noteData</code>, <code>playerStrums</code> and <code>opponentStrums</code> work as before.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="compat">
+  <h2>Mods from other engines <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Put a mod made for another engine in <code>mods/</code>, enable it, and Vortex works out which engine it was made for and translates what it can into its own (Psych Engine) format.</p>
+  <table>
+    <thead><tr><th>Made for</th><th>How Vortex recognises it</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>Psych Engine 1.0.x</td><td>charts with <code>"format": "psych_v1"</code>, stage files with <code>objects</code></td><td>Loads directly, like before.</td></tr>
+      <tr><td>Psych Engine 0.6.x / 0.7.x</td><td>charts in the older section format, characters with / without <code>vocals_file</code></td><td>Loads directly. Old charts are converted when they load (as in Psych 1.0). Lua scripts that use the old class names (<code>getPropertyFromClass('ClientPrefs', 'downScroll')</code>, <code>'PlayState'</code>, <code>'Conductor'</code>...) work: the names are mapped to the current classes.</td></tr>
+      <tr><td>Psych forks (NightmareVision and others)</td><td>Psych-format charts</td><td>Loads as a Psych mod. HScript that uses the fork's own classes (<code>funkin.*</code>) is listed as needing a port.</td></tr>
+      <tr><td>V-Slice (Friday Night Funkin' 0.3+)</td><td><code>_polymod_meta.json</code>, <code>data/songs/&lt;id&gt;/&lt;id&gt;-metadata.json</code>, <code>data/levels/</code></td><td>Translated: songs, characters, stages (including ones built by a stage script), levels. Pictures and sounds are also found in V-Slice's library folders (<code>shared/</code>, <code>week1/</code> ... <code>weekend1/</code>, <code>videos/</code>), like V-Slice does.</td></tr>
+      <tr><td>Codename Engine</td><td><code>songs/&lt;song&gt;/charts/</code>, XML characters / stages / weeks</td><td>Translated: songs (with all their strumlines), characters, stages, weeks.</td></tr>
+      <tr><td>FPS Plus</td><td>charts in <code>data/songs/&lt;song&gt;/&lt;song&gt;.json</code></td><td>Charts translated; characters, stages and weeks are Haxe code in FPS Plus and need remaking.</td></tr>
+      <tr><td>Forever Engine</td><td>charts next to the audio in <code>songs/&lt;song&gt;/</code></td><td>Charts translated; characters, stages and weeks need remaking.</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>The translation goes into <code>vortex_compat/&lt;mod&gt;/</code> next to the game. <strong>The mod's own folder is never changed.</strong> It is redone only when the mod's files change.</li>
+    <li>Every translated mod gets a report: <code>vortex_compat/&lt;mod&gt;/report.txt</code> (what was converted, what was approximated, errors, and what needs manual changes). <code>vortex_compat_log.txt</code> has one line per mod. You can also read it in the game: Developer menu &rarr; V-Slice Converter &rarr; <strong>R</strong>.</li>
+    <li>A song that loads is not the same as a mod that plays exactly like in its engine. Scripts written for V-Slice, Codename, FPS Plus or Forever call that engine's own Haxe code and do not run in Vortex; the report lists each one. Psych Lua and Psych HScript do run.</li>
+    <li>Vortex has one difficulty. From charts with several, it takes <strong>normal</strong> (then hard, then easy) and the report says which ones were left out.</li>
+    <li><strong>Mods don't all keep their files in the same place.</strong> Vortex finds V-Slice songs, characters, stages and levels by what is in each file, anywhere under <code>data/</code> (files with other names, a level file with a space at the end of its name...). If two files describe the same thing, the one in the standard folder wins and the report says which was skipped. Dialogue, note style and freeplay files are not mistaken for characters.</li>
+    <li>A mod unzipped one folder too deep (<code>mods/Download/My Mod/...</code>) still loads; the report says so. Mac zip leftovers (<code>__MACOSX</code>, <code>._</code> files) are ignored.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="compat-details">
+  <h2>What gets translated <span class="tag vortex">Vortex</span></h2>
+  <h3>V-Slice</h3>
+  <table>
+    <thead><tr><th>V-Slice</th><th>In Vortex</th></tr></thead>
+    <tbody>
+      <tr><td>Notes <code>{t, d, l, k}</code></td><td>Exact times, lanes 0-3 player / 4-7 opponent, hold lengths; the note kind becomes the note type (it needs a <code>custom_notetypes/</code> script to do anything special).</td></tr>
+      <tr><td><code>timeChanges</code></td><td>BPM changes. A change in the middle of a section ends that section early, so the beat grid stays right.</td></tr>
+      <tr><td><code>scrollSpeed</code></td><td>The speed of the imported difficulty.</td></tr>
+      <tr><td>FocusCamera</td><td>Which side each section's camera follows; a move in the middle of a section becomes a <a href="#camera-events">Focus Camera</a> event at its exact time. Like in V-Slice, the camera starts on the opponent and stays there until the first FocusCamera. x/y offsets are not kept.</td></tr>
+      <tr><td>ZoomCamera</td><td><a href="#camera-events">Zoom Camera</a> (same zoom, duration and ease).</td></tr>
+      <tr><td>ChangeCharacter, ChangeStage</td><td>Change Character, <a href="#change-stage">Change Stage</a>.</td></tr>
+      <tr><td>PlayAnimation, ScrollSpeed</td><td>Play Animation, Change Scroll Speed.</td></tr>
+      <tr><td>Psych-style events (<code>{"value1", "value2"}</code>, e.g. Screen Shake, Hey!)</td><td>Kept with their values; built-in Psych events just work.</td></tr>
+      <tr><td>SetCameraBop, NoteSwapEvent and other script events</td><td>Kept in the chart under their own name (values as JSON) and listed in the report: add a <code>custom_events/&lt;name&gt;.lua</code> to make them work.</td></tr>
+      <tr><td>Characters (anywhere under <code>data/</code>)</td><td>Sparrow, packer, multi-sparrow and texture-atlas characters with their animations, offsets, scale, health icon and camera offsets. In game they stand with their feet on the stage spot and the camera aims at them exactly like in V-Slice (sized by their idle pose). Base-game and other Psych characters keep Psych's positions. Pictures that only exist as <code>.astc</code> (phone builds of a mod) are reported: get the PC version.</td></tr>
+      <tr><td>Vocals</td><td>V-Slice's rules: <code>playerVocals</code> / <code>opponentVocals</code> from the metadata, then <code>Voices-&lt;character&gt;.ogg</code>, then the character name without its last part (<code>Voices-pico.ogg</code> for <code>pico-playable</code>).</td></tr>
+      <tr><td>Stages (anywhere under <code>data/</code>)</td><td>Props (pictures, solid colours, animated props) in zIndex order, camera zoom, character spots and camera offsets. Props that dance to the beat only play their animation.</td></tr>
+      <tr><td>Stages built by a script (<code>scripts/stages/&lt;id&gt;.hxc</code>, empty <code>props</code>)</td><td>Vortex can't run V-Slice scripts, so it reads the script instead: the sprites made and <code>add()</code>ed when the stage is created (position, picture or spritesheet, animations, scale, scroll, alpha, zIndex...), following <code>if</code> / <code>switch</code> on the song. A stage that looks different per song gets one stage file per song (<code>&lt;id&gt;-&lt;song&gt;</code>). What the script does while the song plays (<code>onBeatHit</code>, <code>onStepHit</code>...) is not converted and is listed in the report.</td></tr>
+      <tr><td>Levels (<code>data/levels/</code>)</td><td>Story Mode weeks. Songs that are in no level show up in Freeplay under "Other songs". Level props (pictures) are not menu characters.</td></tr>
+      <tr><td>Song variations (erect...), alternate instrumentals</td><td>Not imported; listed in the report.</td></tr>
+    </tbody>
+  </table>
+  <h3>Codename Engine</h3>
+  <table>
+    <thead><tr><th>Codename</th><th>In Vortex</th></tr></thead>
+    <tbody>
+      <tr><td>Strumlines (opponent / player / additional)</td><td><a href="#strumlines">Vortex strumlines</a>: the first player line is strumline 1, the first opponent line strumline 2, the rest become extra strumlines with all their characters. An empty girlfriend line sets the girlfriend.</td></tr>
+      <tr><td>Notes, sustains, note types</td><td>Exact; note types by name (they need a <code>custom_notetypes/</code> script).</td></tr>
+      <tr><td><code>meta.json</code></td><td>BPM, display name, icon, colour.</td></tr>
+      <tr><td>Camera Movement, BPM Change, Add Camera Zoom, Play Animation, Scroll Speed Change</td><td>Section camera, BPM changes, Add Camera Zoom, Play Animation, Change Scroll Speed.</td></tr>
+      <tr><td>HScript Call and other events</td><td>Kept in the chart, listed in the report.</td></tr>
+      <tr><td>Audio in <code>songs/&lt;song&gt;/song/</code></td><td>Found there.</td></tr>
+      <tr><td>XML characters, stages (sprites, solids, high-memory groups), weeks</td><td>Psych character / stage / week files. Unknown stage elements are listed.</td></tr>
+    </tbody>
+  </table>
+  <h3>FPS Plus and Forever Engine</h3>
+  <p>Their charts use the base-game section format, which Vortex reads. Events stored in a format Psych can't read are kept in the chart as <code>vortexOriginalEvents</code> and listed, so they can be re-added in the Chart Editor. Their characters, stages and weeks are Haxe code in those engines; songs use Boyfriend and the default stage until you make them with Vortex's editors, and the songs are listed in Freeplay.</p>
+  <h3>Psych Engine 0.6 / 0.7 scripts</h3>
+<pre data-file="mods/Old-Mod/data/my-song/script.lua"><code>-- written for Psych 0.6; works in Vortex
+local down = getPropertyFromClass('ClientPrefs', 'downScroll')   -- read from ClientPrefs.data.downScroll
+local song = getPropertyFromClass('PlayState', 'SONG.song')      -- states.PlayState
+luaSpriteMakeGraphic('box', 10, 10, 'FF0000')                     -- old functions still exist</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="vslice-converter">
+  <h2>V-Slice Converter <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Developer menu (<strong>7</strong> on the main menu) &rarr; <strong>V-Slice Converter</strong>. It copies a mod into V-Slice's folder layout so you can start porting it to V-Slice.</p>
+  <ol>
+    <li>Pick the mod on the left. The right side shows which engine it was made for and what Vortex found in it (<strong>R</strong> shows the full compatibility report).</li>
+    <li>Press <strong>ENTER</strong>. The result goes to <code>vortex_converted/&lt;mod&gt;-vslice/</code> next to the game. The mod itself is not changed. Converting again replaces only a folder the converter made; any other folder with that name is kept and the output goes to <code>-vslice-2</code>.</li>
+    <li>Read <code>REPORT.txt</code> in the output (<strong>V</strong> shows it, <strong>O</strong> opens the folder).</li>
+    <li><span class="tag vortex">0.7</span> The zip <code>vortex_converted/&lt;mod&gt;-vslice.zip</code> is made every time (<strong>Z</strong> makes it again). It has the mod folder at the top, so unzipping it inside V-Slice's <code>mods/</code> folder puts it at the right depth: <code>mods/&lt;mod&gt;-vslice/_polymod_meta.json</code>. On a phone, that <code>mods/</code> folder is in FNF's folder in your files app. Restart the game after adding a mod.</li>
+  </ol>
+  <div class="callout"><strong>Mod not showing up in V-Slice?</strong> V-Slice only looks one folder into <code>mods/</code> and skips anything deeper without a message. <code>mods/vortex_converted/My-Mod-vslice/</code> (zipping the whole <code>vortex_converted</code> folder) or <code>mods/My-Mod-vslice/My-Mod-vslice/</code> (some unzip apps add a folder) won't load: move the folder that has <code>_polymod_meta.json</code> in it directly into <code>mods/</code>.</div>
+<div class="tree"><b>vortex_converted/My-Mod-vslice/</b>
+├─ _polymod_meta.json
+├─ data/songs/&lt;song&gt;/&lt;song&gt;-metadata.json   <i>name, BPM changes, characters, stage, difficulties</i>
+├─ data/songs/&lt;song&gt;/&lt;song&gt;-chart.json      <i>notes per difficulty, scroll speeds, events</i>
+├─ data/characters/   data/stages/   data/levels/
+├─ songs/&lt;song&gt;/Inst.ogg, Voices-&lt;character&gt;.ogg
+├─ images/  sounds/  music/  shaders/  videos/
+└─ REPORT.txt</div>
+  <ul>
+    <li>Converted: charts (every difficulty file the song has), BPM changes, section cameras (as FocusCamera), Play Animation, Hey!, Change Scroll Speed, Focus Camera and Zoom Camera events, characters, stages with objects, weeks (as levels), audio and pictures.</li>
+    <li><span class="tag vortex">0.7</span> <strong>Characters stand exactly where they do in Psych.</strong> V-Slice places a character by its feet and its idle pose; the converter works out each character's offsets from its sprite sheet so the result matches Psych, camera included. Psych's default stage (<code>stage</code>) is written as a stage too, so songs on it line up.</li>
+    <li><span class="tag vortex">0.7</span> <strong>Nothing replaces the base game.</strong> A character, stage, song or week whose id is already in V-Slice's base game (like <code>bf</code>, <code>gf</code>, <code>bf-dark</code>, <code>mainStage</code>, <code>week1</code>) is renamed <code>&lt;id&gt;-&lt;your mod&gt;</code>: the same id would replace the base one everywhere and run its script (which crashes with "Render type mismatch"). Base-game characters your songs use are copied in under the new name, with their pictures.</li>
+    <li><span class="tag vortex">0.7</span> <strong>Lua scripts are translated to V-Slice HScript:</strong> <code>custom_events/&lt;name&gt;.lua</code> becomes a V-Slice event (<code>scripts/events/</code>), song scripts (<code>data/&lt;song&gt;/*.lua</code>) and global scripts (<code>scripts/*.lua</code>) become V-Slice modules that run in their song / in all of your songs. Psych's callbacks (<code>onCreatePost</code>, <code>onUpdate(Post)</code>, <code>onBeatHit</code>, <code>onStepHit</code>, <code>goodNoteHit</code>, <code>opponentNoteHit</code>, <code>noteMiss</code>, <code>onEvent</code>, <code>onSongStart</code>, <code>onEndSong</code>, <code>onTimerCompleted</code>, <code>onTweenCompleted</code>) and the common Psych functions (<code>getProperty</code> / <code>setProperty</code> with Psych's numbers for character positions and the camera, <code>cameraFlash</code>, <code>cameraShake</code>, <code>doTweenZoom</code>, <code>doTween…</code>, <code>makeLuaSprite</code>, <code>makeGraphic</code>, <code>addLuaSprite</code>, <code>runTimer</code>, <code>triggerEvent</code>, <code>setCameraFollowPoint</code>, <code>getMidpointX/Y</code>, <code>playSound</code>, <code>playAnim</code>, <code>mustHitSection</code>…) are rebuilt with V-Slice's classes. Psych's built-in Add Camera Zoom, Screen Shake, Camera Follow Pos, Change Character, Set GF Speed, Alt Idle Animation, Play Sound and Set Property events work the same way. A Psych function with no V-Slice version is listed in the report and only prints a message; a callback that hits something V-Slice doesn't have stops quietly instead of showing an error every frame.</li>
+    <li><span class="tag vortex">0.7</span> <strong>Dialogue:</strong> a <code>startDialogue('file')</code> in a song's Lua becomes a V-Slice conversation: the lines, the portraits (placed where Psych puts them) and Psych's speech bubble. It plays before the countdown (only in Story Mode if your Lua checked <code>isStoryMode</code>) or after the song if it was in <code>onEndSong</code>.</li>
+    <li><span class="tag vortex">0.7</span> <strong>Phones:</strong> picture names get their real upper / lower case (phones care, Windows doesn't). <span class="tag vortex">0.7.1</span> Character and stage pictures bigger than 4096 pixels are made smaller (an 8192×8192 picture uses 256 MB of video memory and makes phones lag); the sprite is drawn bigger by the same amount, so it looks the same. A picture whose path the base game also uses (for example <code>characters/DADDY_DEAREST</code>) goes to <code>images/&lt;your mod&gt;/</code>, so it doesn't replace the base game's picture in every song.</li>
+    <li><span class="tag vortex">0.7.2</span> <strong>Dialogue, videos and HUD:</strong> the converted dialogue box draws its text with Psych's alphabet letters, placed like Psych's dialogue box; portraits use the offsets Psych uses for the animation they show; a portrait the mod doesn't include comes from Psych's own (or <code>bf</code>, like Psych). A <code>startVideo()</code> before the countdown or in <code>onEndSong</code> plays the video with V-Slice's video player (videos are written to <code>videos/videos/</code>, where V-Slice looks). Lua sprites and texts on the HUD are drawn over the HUD like in Psych, except a sprite covering most of the screen, which goes just under the notes so they stay visible on phones.</li>
+    <li><span class="tag vortex">0.7.1</span> <strong>Speed:</strong> V-Slice runs scripts through an interpreter, which is slow on phones. Translated scripts only do Lua's text-to-number conversion where Psych passes text (event values), read table fields directly, and only hook the callbacks they use. A heavy per-frame Lua script still costs frames on a phone: if a mod lags, the report's list of converted scripts is the place to look.</li>
+    <li>Not converted, and listed in the report: Psych HScript (<code>.hx</code>), events with no script, notes on extra strumlines, which singer sings a note, Story Mode menu characters, note types, achievements, custom menus, shaders set up from Lua, Lua that uses Psych functions with no V-Slice version (listed by name).</li>
+    <li>Every written file is read back and checked (valid JSON, every difficulty has notes and a scroll speed, notes in lanes 0-7).</li>
+    <li><code>_polymod_meta.json</code> gets <code>"api_version": "0.8.0"</code>. V-Slice 0.8.x has no mod list: it loads every folder in its <code>mods/</code> whose api_version is in its range (<code>&gt;=0.8.0 &lt;0.9.0</code>), so the converted mod is on as soon as it's there. For another V-Slice version, change the number to that version.</li>
+    <li>Tested in the official Friday Night Funkin' 0.8.6 (Windows) with a real Psych mod: character placement, renamed characters, custom events, Change Character, song and global scripts (camera, zoom) and dialogue. Play your songs in V-Slice before releasing: a translated script can still behave differently where Psych and V-Slice work differently.</li>
+  </ul>
+  <div class="callout"><strong>iOS:</strong> not verified. The converter does nothing iOS-specific. Running a mod on iOS needs a V-Slice build for iOS that includes it (usually built from source on a Mac with Xcode), no Lua, ported HScript, shaders that compile as GLSL ES, H.264 .mp4 videos and no Windows-only code. Test on a real device.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="menu-themes">
+  <h2>Menu Editor &amp; themes <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Developer menu &rarr; <strong>Menu Editor</strong>. Pick how the menus look; the main menu, Freeplay, Story Mode, the Developer menu and the Chart Editor follow it.</p>
+  <table>
+    <thead><tr><th>Theme</th><th>Look</th></tr></thead>
+    <tbody>
+      <tr><td>Vortex Theme</td><td>The cosmic Vortex Engine menus (default).</td></tr>
+      <tr><td>Psych Classic</td><td>The menus of the original Psych Engine: the yellow menu background with the big animated buttons, the Freeplay song list on a colour-changing background, Story Mode's yellow band, Psych's developer menu. The Chart Editor switches to Psych's grey look.</td></tr>
+      <tr><td>Custom Theme</td><td>A mod's <a href="#custom-menus"><code>custom_menus/</code></a>: your colours, font, backgrounds, logo, button layout, icons, labels, animations and transitions.</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li><strong>LEFT / RIGHT</strong> picks a theme and the preview shows its main menu. <strong>ENTER</strong> uses it (saved; it applies to menus you open from then on). <strong>R</strong> goes back to the Vortex theme.</li>
+    <li>For Custom: pick the mod, edit the most-used settings (name, font, colours, background, button position / spacing / width / alignment, title, intro animation, transition) and press <strong>Save menu.json</strong>. Everything else in the file is kept. <strong>C</strong> makes a starter <code>custom_menus/</code> in the mod picked in the Developer menu. Problems are listed under the preview.</li>
+    <li>Every menu option, key and mouse action works the same in every theme. The Chart Editor follows the theme once, when you change it; after that its own View menu theme is kept.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="custom-menus">
+  <h2>Custom menus <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A <code>custom_menus/</code> folder in your mod changes the look of the menus with a JSON file, no code. The <a href="#setup">mod template</a> and the bundled example mod have one.</p>
+<div class="tree"><b>mods/My-Mod/custom_menus/</b>
+├─ menu.json      <i>the settings (below)</i>
+├─ assets/        <i>pictures (PNG) and fonts (TTF / OTF)</i>
+├─ animations/    <i>name.png + name.xml (Sparrow sheet)</i>
+└─ README.md      <i>setup instructions</i></div>
+<pre data-file="mods/My-Mod/custom_menus/menu.json"><code>{
+    "format": 1,
+    "name": "Sunset",
+    "colors": {"panelFill": "#2A1208", "accent": "#FFD27A", "text": "#FFF5E6", "primary": "#FF7A3D"},
+    "background": {"type": "gradient", "colors": ["#3D1B4F", "#E86A3A"],
+                   "animation": {"file": "orbit", "prefix": "orbit spin", "fps": 12, "x": 1120, "y": 40}},
+    "animations": {"intro": "fade", "speed": 1.2},
+    "transitions": {"type": "fade", "duration": 0.4},
+    "mainMenu": {
+        "logo": "logo.png",
+        "buttons": {"x": 60, "y": 200, "spacing": 12, "width": 470, "align": "left"},
+        "labels": {"story_mode": "Campaign"},
+        "icons": {"story_mode": "icons/story.png"}
+    },
+    "freeplay": {"title": "FREE PLAY"},
+    "chartEditor": {"background": "#2A1A12", "grid": ["#E8D2BE", "#D2B89F"], "gridOther": ["#6A5040", "#55402F"]}
+}</code></pre>
+  <ul>
+    <li>Players turn it on in the Menu Editor (Custom Theme). With <code>"autoApply": true</code> it is also used by itself until the player picks a theme there.</li>
+    <li>If the file has a mistake (a colour like <code>"blue"</code>, a picture that isn't there, an unknown setting value...), the menu is <strong>not</strong> used: the last built-in theme is used instead, a message says so, and every problem is listed in the Menu Editor and in <code>vortex_script_log.txt</code>. Unknown settings are only warnings.</li>
+    <li>The bundled <code>Vortex-Example-Mod</code> has a working custom menu ("Example Sunset"): logo, icons, a gradient background with an animated star, labels and its own Chart Editor colours.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="custom-menus-schema">
+  <h2>menu.json reference <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Every setting is optional; leave one out to keep the Vortex default.</p>
+  <table>
+    <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>format</code></td><td>Always <code>1</code>.</td></tr>
+      <tr><td><code>name</code>, <code>author</code></td><td>Shown in the Menu Editor.</td></tr>
+      <tr><td><code>autoApply</code></td><td><code>true</code>: used until the player picks a theme in the Menu Editor.</td></tr>
+      <tr><td><code>font</code></td><td>A <code>.ttf</code> / <code>.otf</code> in <code>assets/</code>, or a game font (<code>vcr.ttf</code>, <code>pixel-latin.ttf</code>).</td></tr>
+      <tr><td><code>colors</code></td><td><code>panelFill</code>, <code>panelBorder</code>, <code>panelBorderSelected</code>, <code>accent</code>, <code>text</code>, <code>textDim</code>, <code>primary</code>, <code>secondary</code>, <code>tertiary</code> as <code>"#RRGGBB"</code>. Buttons use primary / accent / secondary / tertiary in turn.</td></tr>
+      <tr><td><code>background</code></td><td><code>{"type": "cosmic"}</code> (add <code>"rings": false</code> to hide the rings), <code>{"type": "color", "color": "#101020"}</code>, <code>{"type": "gradient", "colors": ["#1A0F3D", "#05040D"]}</code> or <code>{"type": "image", "image": "bg.png"}</code> (<code>"scroll": [x, y]</code> pixels per second makes it scroll). Any of them can have <code>"alpha"</code> and an <code>"animation"</code> on top.</td></tr>
+      <tr><td><code>animations</code></td><td><code>intro</code>: <code>"slide"</code>, <code>"fade"</code> or <code>"none"</code> (how buttons and cards appear); <code>speed</code>: 1 = normal.</td></tr>
+      <tr><td><code>transitions</code></td><td><code>type</code>: <code>"fade"</code> or <code>"none"</code>; <code>duration</code> in seconds (between all screens).</td></tr>
+      <tr><td><code>mainMenu</code></td><td><code>title</code>, <code>subtitle</code>, <code>logo</code> (picture, or an animation object), <code>buttons</code> (<code>x</code>, <code>y</code>, <code>spacing</code>, <code>width</code>, <code>align</code>: left / center / right), <code>labels</code> and <code>icons</code> per option, <code>showInfoPanel</code>, <code>infoText</code> per option, <code>navigation</code> (<code>wrap</code>, <code>mouse</code>), <code>showVersion</code>, <code>background</code>. Options: <code>story_mode</code>, <code>freeplay</code>, <code>mods</code>, <code>credits</code>, <code>achievements</code>, <code>options</code>.</td></tr>
+      <tr><td><code>freeplay</code></td><td><code>title</code>, <code>showInfoPanel</code> (false puts the song list in the middle), <code>background</code>.</td></tr>
+      <tr><td><code>storyMode</code>, <code>developerMenu</code></td><td><code>title</code>, <code>background</code>.</td></tr>
+      <tr><td><code>chartEditor</code></td><td><code>background</code> (a colour), <code>grid</code> and <code>gridOther</code> (two colours each).</td></tr>
+      <tr><td>Animation object</td><td><code>{"file": "star", "prefix": "star spin", "fps": 24, "x": 0, "y": 0, "scale": 1, "loop": true}</code> &mdash; <code>animations/star.png</code> + <code>.xml</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>A custom menu keeps the Vortex layout and every option. For a completely different menu screen, use a <a href="#state-scripts">state script</a> or a <a href="#custom-states">custom state</a>.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="spawn-note">
+  <h2>Notes from scripts <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead"><code>spawnNote</code> adds a note while the song is playing, for mechanics that aren't in the chart: random notes, patterns generated from code, notes made by an event. It's built exactly like a chart note, holds included.</p>
+<pre data-file="mods/My-Mod/scripts/extra-notes.lua"><code>function onSongStart()
+    local t = getSongPosition()
+    -- spawnNote(time in ms, column 0-3, mustPress, noteType, holdLength in ms)
+    spawnNote(t + 1500, 1, true, 'Bonus Note')     -- a Down note for the player, 1.5 s from now
+    spawnNote(t + 1900, 2, true, '', 300)          -- an Up note with a 300 ms hold
+    spawnNote(t + 2400, 0, false)                  -- a Left note for the opponent
+end</code></pre>
+  <ul>
+    <li><code>noteType</code> can be any custom note type. Its <code>custom_notetypes/&lt;Type&gt;.lua</code> (or <code>.hx</code>) script is loaded the first time a note of that type is spawned, even if the chart never uses it. <code>goodNoteHit</code>, <code>noteMiss</code>, <code>onSpawnNote</code> and so on work on these notes like on chart notes.</li>
+    <li>Returns <code>true</code> when the note was added. It only works during a song; elsewhere it returns <code>false</code> and prints a message.</li>
+    <li>A note whose time has already passed counts as a miss, as in a chart.</li>
+  </ul>
+<pre data-file="mods/My-Mod/custom_notetypes/Bonus Note.lua"><code>function goodNoteHit(id, direction, noteType, isSustain)
+    if noteType == 'Bonus Note' then
+        addScore(500)
+    end
+end</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="keybinds">
+  <h2>Mod key binds <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Give your mod its own controls that players can rebind, instead of hard-coding keys in scripts. List them in <code>data/keybinds.json</code>.</p>
+<pre data-file="mods/My-Mod/data/keybinds.json"><code>[
+    {"id": "taunt", "name": "Taunt", "keys": ["T"], "buttons": ["RIGHT_SHOULDER"]},
+    {"id": "toggle_hud", "name": "Toggle HUD", "keys": ["H"]}
+]</code></pre>
+  <ul>
+    <li>They show up in <strong>Options &rarr; Controls</strong> under <strong>MOD CONTROLS</strong>, for keyboard and gamepad. Changes are saved with the normal controls.</li>
+    <li><code>id</code> must be lowercase and can't be a built-in control (<code>note_left</code>, <code>accept</code>...). <code>keys</code> are key names (<code>A</code>, <code>SPACE</code>, <code>SHIFT</code>, <code>NUMPADONE</code>...) and <code>buttons</code> are gamepad button names (<code>A</code>, <code>X</code>, <code>LEFT_SHOULDER</code>...). The menu shows up to two of each.</li>
+  </ul>
+  <p>Read them in any script, in songs or menus, with the usual Psych functions:</p>
+<pre data-file="mods/My-Mod/scripts/taunt.lua"><code>function onUpdate(elapsed)
+    if keyJustPressed('taunt') then
+        playAnim('boyfriend', 'hey', true)
+    end
+end</code></pre>
+  <table>
+    <thead><tr><th>Function</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>keyJustPressed(id)</code>, <code>keyPressed(id)</code>, <code>keyReleased(id)</code></td><td>The bind's state this frame (keyboard or gamepad).</td></tr>
+      <tr><td><code>getKeybind(id)</code></td><td>The key names bound to it right now, e.g. <code>{'T'}</code>. Works for built-in binds too.</td></tr>
+      <tr><td><code>keybindExists(id)</code></td><td><code>true</code> if a bind with that id exists.</td></tr>
+      <tr><td><code>addKeybind(id, name, {keys}, {buttons}?)</code></td><td>Adds a bind from a script. Prefer <code>keybinds.json</code>: a script's bind only appears in the Controls menu after the script has run.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section id="custom-events">
+  <h2>Custom events</h2>
+  <p class="section-lead">Events are things that happen at a set time in the chart. Make your own in <code>custom_events/</code>.</p>
+<div class="tree"><b>custom_events/</b>
+├─ Flash Test.txt     <i>description shown in the chart editor (optional in Vortex)</i>
+└─ Flash Test.lua     <i>or Flash Test.hx</i></div>
+<pre data-file="mods/My-Mod/custom_events/Flash Test.lua"><code>function onEvent(name, value1, value2, strumTime)
+    if name == 'Flash Test' then
+        cameraFlash('game', 'FFFFFF', 0.5)
+        debugPrint('Flash Test fired, value 1 = ' .. value1)
+    end
+end</code></pre>
+  <ul>
+    <li>In the chart editor, pick the event in the <strong>Events</strong> tab, fill in Value 1 and Value 2, and place it on the grid.</li>
+    <li><span class="tag vortex">Vortex</span> An event with only a <code>.lua</code> or <code>.hx</code> file and no <code>.txt</code> still shows up in the chart editor list. Psych only listed events that had a <code>.txt</code>.</li>
+    <li><span class="tag vortex">Vortex</span> You can fire an event from any script, even one that isn't placed in the chart. The engine loads its script the first time:
+<pre><code>triggerEvent('Flash Test', 'hello', '')</code></pre>
+    In Psych, an event that wasn't in the chart never loaded its script, so <code>onEvent</code> never reached it.</li>
+    <li><code>onEventPushed(name, value1, value2, strumTime)</code> runs once for every event in the chart while the song loads. It's useful for preloading.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="change-stage">
+  <h2>Change Stage event <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">A built-in event that swaps the whole stage in the middle of a song. It works with your own stages and with the built-in ones.</p>
+  <table>
+    <thead><tr><th>Value</th><th>What to write</th></tr></thead>
+    <tbody>
+      <tr><td>Value 1</td><td>The stage you're in now, e.g. <code>stage</code>.</td></tr>
+      <tr><td>Value 2</td><td>The stage to change to: a stage from <code>stages/&lt;name&gt;.json</code> or a built-in one.</td></tr>
+    </tbody>
+  </table>
+  <p>The characters stay and move to the new stage's positions. The camera zoom and offsets change to the new stage's, and the new stage's script (<code>stages/&lt;name&gt;.lua</code> or <code>.hx</code>) is started. The old stage's script keeps running, so check <code>curStage</code> in it if it should stop doing things. The new stage's pictures are loaded while the song loads, so the swap doesn't stutter. If Value 1 doesn't match the current stage, the stage changes anyway and a note goes to the log.</p>
+<pre><code>triggerEvent('Change Stage', 'stage', 'my-night-stage')   -- from a script</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="camera-events">
+  <h2>Camera events <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Two built-in events for the camera. V-Slice's FocusCamera and ZoomCamera become these when a V-Slice mod is translated, and you can use them in any chart.</p>
+  <table>
+    <thead><tr><th>Event</th><th>Value 1</th><th>Value 2</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Focus Camera</strong></td><td><code>bf</code>, <code>dad</code> or <code>gf</code></td><td>(not used)</td></tr>
+      <tr><td><strong>Zoom Camera</strong></td><td>The new zoom (<code>1.1</code>), or <code>x1.2</code> for 1.2 times the stage's zoom</td><td><code>seconds,ease</code>, e.g. <code>0.5,expoIn</code>; blank or 0 = instant</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li><strong>Focus Camera</strong> points the camera at someone right away, in the middle of a section. The next section's own camera (Must Hit Section / GF Section) applies again after it.</li>
+    <li><strong>Zoom Camera</strong> changes the zoom the camera returns to after beat zooms, so it lasts. The ease names are the ones <code>doTweenZoom</code> takes (<code>linear</code>, <code>quadOut</code>, <code>expoIn</code>, <code>sineInOut</code>...).</li>
+  </ul>
+<pre><code>triggerEvent('Zoom Camera', 'x1.25', '1,quadOut')   -- from a script
+triggerEvent('Focus Camera', 'gf', '')</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="song-files">
+  <h2>Song audio files</h2>
+  <p class="section-lead">Put the audio in <code>songs/&lt;song&gt;/</code>, using the same names as Psych Engine.</p>
+  <table>
+    <thead><tr><th>File</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td><code>Inst.ogg</code></td><td>The instrumental. Required.</td></tr>
+      <tr><td><code>Voices.ogg</code></td><td>All vocals in one file.</td></tr>
+      <tr><td><code>Voices-Player.ogg</code> + <code>Voices-Opponent.ogg</code></td><td>Separate vocals for each side.</td></tr>
+    </tbody>
+  </table>
+  <p><code>.wav</code> also works if there's no <code>.ogg</code>. <code>.mp3</code> does not. If the <code>Inst</code> is missing, Vortex shows a screen saying where it looked, instead of playing a short beep.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="videos">
+  <h2>Videos <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Put <code>.mp4</code> files in your mod's <code>videos/</code> folder and play them with Psych's <code>startVideo</code>.</p>
+<pre data-file="mods/My-Mod/data/my-song/script.lua"><code>function onStartCountdown()
+    if isStoryMode and not seenCutscene then
+        startVideo('my-cutscene')   -- mods/My-Mod/videos/my-cutscene.mp4
+        return Function_Stop
+    end
+    return Function_Continue
+end</code></pre>
+  <p>In Psych Engine's normal builds, video support was only switched on for official builds, so videos never played in self-built copies. Vortex turns it on for every desktop build (tested on Windows).</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="examples">
+  <h2>Full example</h2>
+  <p class="section-lead">A main-menu entry that opens a custom state full of scripted objects. These are the same files used to test this feature in the engine.</p>
+  <div class="grid-2">
+    <div class="card"><h4>1. Entry point</h4><p><code>states/MainMenuState.lua</code> adds a hint and opens the gallery when G is pressed. See <a href="#state-scripts">State scripts</a>.</p></div>
+    <div class="card"><h4>2. The screen</h4><p><code>states/Gallery.lua</code> is shown below.</p></div>
+    <div class="card"><h4>3. A Lua class</h4><p><code>classes/Bouncer.lua</code>. See <a href="#scripted-classes">Scripted classes</a>.</p></div>
+    <div class="card"><h4>4. An HScript class</h4><p><code>classes/Spinner.hx</code>. See <a href="#scripted-classes">Scripted classes</a>.</p></div>
+  </div>
+<pre data-file="mods/My-Mod/states/Gallery.lua"><code>function onCreate()
+    makeLuaSprite('bg', '', 0, 0)
+    makeGraphic('bg', 1280, 720, '120C24')
+    addLuaSprite('bg')
+
+    makeLuaText('title', 'GALLERY', 1280, 0, 40)
+    setTextSize('title', 40)
+    setTextColor('title', '52E7FF')
+    addLuaText('title')
+
+    createScripted('Bouncer', 'red', 300, 300, 'FF4F7A')
+    createScripted('Bouncer', 'teal', 500, 300, '35D0C0')
+    createScripted('Spinner', 'spin', 800, 280, 120)
+
+    runTimer('hello', 1)
+end
+
+function onTimerCompleted(tag)
+    if tag == 'hello' then
+        callScripted('teal', 'jump', 120)
+    end
+end
+
+function onUpdate(elapsed)
+    if keyboardJustPressed('ESCAPE') then
+        switchState('MainMenuState')
+    end
+end</code></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="reference">
+  <h2>Function reference <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Every function Vortex adds. They're all available in Lua and HScript. In HScript, pass the extra values as an array.</p>
+  <h4>States</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>switchState(name, args?)</code></td><td>bool</td><td>Opens custom state <code>states/name</code> or a built-in screen. <code>args</code> is a table (Lua) or array (HScript). Returns <code>false</code> if nothing has that name.</td></tr>
+      <tr><td><code>stateExists(name)</code></td><td>bool</td><td>Is there a custom state with this name in an enabled mod?</td></tr>
+      <tr><td><code>getStateName()</code></td><td>string</td><td>The current custom state's name, or the built-in screen's name.</td></tr>
+      <tr><td><code>getStateArgs()</code></td><td>table</td><td>The arguments passed to <code>switchState</code>. Empty outside custom states.</td></tr>
+    </tbody>
+  </table>
+  <h4>Scripted classes</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>createScripted(class, tag, x, y, ...)</code></td><td>tag / sprite</td><td>Makes an instance of <code>classes/class</code> at x, y and calls its <code>new(self, ...)</code>. Lua takes up to 5 extra values and returns the tag, or <code>nil</code> if it failed. HScript takes an array and returns the sprite. Reusing a tag replaces the old object.</td></tr>
+      <tr><td><code>callScripted(tag, method, ...)</code></td><td>any</td><td>Calls one of the class's functions on that instance and returns what it returns.</td></tr>
+      <tr><td><code>destroyScripted(tag)</code></td><td>bool</td><td>Calls <code>destroy(self)</code>, then removes and deletes the sprite.</td></tr>
+      <tr><td><code>scriptedExists(tag)</code></td><td>bool</td><td>Is there an instance with this tag?</td></tr>
+      <tr><td><code>scriptedClassExists(class)</code></td><td>bool</td><td>Is there a <code>classes/class.lua</code> or <code>.hx</code> in an enabled mod?</td></tr>
+      <tr><td><code>getScriptedOf(class)</code></td><td>table</td><td>Tags of every instance of that class, in the order they were created.</td></tr>
+      <tr><td><code>getScripted(tag)</code></td><td>sprite</td><td><em>HScript only.</em> The instance's sprite object.</td></tr>
+    </tbody>
+  </table>
+  <h4>Global variables, notes, key binds, debugging</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>setGlobalVar(name, value)</code> / <code>getGlobalVar(name, default?)</code></td><td>any</td><td>Values kept across screens and songs. See <a href="#global-scripts">Global scripts</a>.</td></tr>
+      <tr><td><code>globalVarExists(name)</code> / <code>removeGlobalVar(name)</code></td><td>bool</td><td>Check for or forget a global variable.</td></tr>
+      <tr><td><code>spawnNote(time, column, mustPress?, noteType?, holdLength?)</code></td><td>bool</td><td>Adds a note during a song. See <a href="#spawn-note">Notes from scripts</a>.</td></tr>
+      <tr><td><code>getKeybind(id)</code> / <code>keybindExists(id)</code> / <code>addKeybind(id, name, keys, buttons?)</code></td><td>table / bool / bool</td><td>See <a href="#keybinds">Mod key binds</a>.</td></tr>
+      <tr><td><code>getScriptErrorCount()</code></td><td>int</td><td>Different script errors so far this session.</td></tr>
+      <tr><td><code>writeToScriptLog(text)</code></td><td>bool</td><td>Adds a line to <code>vortex_script_log.txt</code>.</td></tr>
+    </tbody>
+  </table>
+  <h4>Changed behaviour</h4>
+  <table>
+    <thead><tr><th>Function</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>debugPrint(text, color?)</code></td><td>Works outside songs too.</td></tr>
+      <tr><td><code>camGame</code>, <code>camHUD</code>, <code>camOther</code></td><td>Now Lua variables (<code>'game'</code>, <code>'hud'</code>, <code>'other'</code>), so <code>cameraFlash(camOther, ...)</code> works. Before, they were <code>nil</code> and the flash went to the wrong camera.</td></tr>
+      <tr><td><code>cameraFlash</code> / <code>cameraFade</code></td><td>The duration can be a number or a string like <code>'0.5'</code> (event values are strings).</td></tr>
+      <tr><td><code>triggerEvent(name, v1, v2)</code></td><td>Loads <code>custom_events/name</code> the first time if it isn't in the chart.</td></tr>
+      <tr><td><code>addLuaSprite(tag, false)</code></td><td>Outside songs, adds the sprite on top, since there are no characters to go behind.</td></tr>
+      <tr><td><code>getModSetting</code></td><td>Its warnings work outside songs.</td></tr>
+      <tr><td><code>callOnScripts</code>, <code>setOnScripts</code>, <code>callScript</code>, <code>isRunning</code>, <code>addLuaScript</code>, <code>getRunningScripts</code>...</td><td>Work in menus and custom states, where they reach that screen's scripts. They crashed there before. Scripted classes receive <code>callOnScripts</code> calls too.</td></tr>
+      <tr><td><code>keyJustPressed</code> / <code>keyPressed</code> / <code>keyReleased</code></td><td>Work in menus, and accept mod key bind ids.</td></tr>
+      <tr><td><code>openCustomSubstate</code> and friends</td><td>Work in menus and custom states.</td></tr>
+      <tr><td>Lua runtime errors</td><td>Logged with a traceback and shown once, even without <code>luaDebugMode</code>.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section id="build-verification">
+  <h2>Official builds <span class="tag vortex">Vortex</span></h2>
+  <p class="section-lead">Official Vortex Engine release zips contain a signed list of the game's files. Every time it starts, the game checks it in the background.</p>
+  <table>
+    <thead><tr><th>Result</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Verified</td><td><code>vortex_manifest.json</code> is signed with the release key and every program and asset file matches it.</td></tr>
+      <tr><td>Unverified</td><td>No signed manifest (every build made from the source code, including GitHub Actions builds), a signature that doesn't match, or a manifest for another version. This does <strong>not</strong> mean the build is harmful.</td></tr>
+      <tr><td>Integrity check failed</td><td>The signature is valid but files were changed or removed, or extra program files (.exe / .dll / .ndll) were added next to the game. The message names them.</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>When the build isn't verified, the game writes <code>UNOFFICIAL_BUILD_README.txt</code> next to the executable: the version, when it was built, the result and where to get official releases (<a href="https://github.com/burgergoose/vortex-engine">github.com/burgergoose/vortex-engine</a>). It is only rewritten when its text changes, an unrelated file with that name is never overwritten, and it is removed when the build checks out as official again. If the game folder can't be written to, it goes to the game's data folder (<code>%APPDATA%\Vortex Engine\VortexEngine\</code> on Windows) and a message says where.</li>
+    <li>Mods, logs, <code>modsList.txt</code> and the translation / converter folders are not part of the check, so adding mods never affects it.</li>
+    <li>The F3 overlay shows the result (<code>Build: ...</code>).</li>
+    <li><strong>Limits:</strong> this can't guarantee a copy is safe. Someone who changes the executable itself can also remove or fake the check. Only download the game from the official page.</li>
+    <li>For maintainers: <code>tools/sign_release.py</code> signs a release folder with the private key, which is kept outside the repository and never shipped. The executable only contains the public key.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="troubleshooting">
+  <h2>Troubleshooting</h2>
+  <ul>
+    <li><strong>"A mod from V-Slice / Codename shows up but plays wrong."</strong> Open <code>vortex_compat/&lt;mod&gt;/report.txt</code> (or Developer menu &rarr; V-Slice Converter &rarr; R). Scripts and custom events of other engines don't run in Vortex; the report lists each one.</li>
+    <li><strong>"A V-Slice mod's stage is black."</strong> Its pictures are made by a stage script. Since 0.6 Vortex reads the sprites out of <code>scripts/stages/</code>; the report lists anything it left out (sprites that start hidden, sprites on the HUD, things the script does during the song).</li>
+    <li><strong>"I can't switch my mod on in the base game (V-Slice 0.8)."</strong> V-Slice 0.8 has no Mods menu: it loads every mod folder in its <code>mods/</code> whose <code>_polymod_meta.json</code> has an <code>api_version</code> in its range (<code>0.8.0</code> to below <code>0.9.0</code>). Mods made with the V-Slice Converter get <code>0.8.0</code>.</li>
+    <li><strong>"Tutorial and Week 1 stay in Story Mode after I deleted them."</strong> Deleting them from the source <code>assets/</code> doesn't remove the copy already in the built game, and <code>weekList.txt</code> only sets the order. Use <code>"hideBaseGameWeeks"</code> in your mod's <code>pack.json</code> (see <a href="#setup">Setting up a mod</a>).</li>
+    <li><strong>"My mod's songs don't appear after I changed its files."</strong> The translation is redone when files in <code>data/</code>, <code>scripts/</code> or <code>songs/</code> change. If it still looks old, delete <code>vortex_compat/&lt;mod&gt;/</code> (it is made again).</li>
+    <li><strong>"My custom menu isn't used."</strong> The Menu Editor lists what's wrong with <code>menu.json</code> under the preview. Until it is fixed, the built-in theme is used.</li>
+    <li><strong>"There's an UNOFFICIAL_BUILD_README.txt next to the game."</strong> You are running a build that isn't a verified official release (for example one you built yourself). It's safe to delete; see <a href="#build-verification">Official builds</a>.</li>
+    <li><strong>"My Camera Flash event doesn't flash."</strong> Check <strong>Options &rarr; Visuals &rarr; Flashing Lights</strong>: when it's off, flashes are skipped on purpose, and a script that checks <code>flashingLights</code> before calling <code>cameraFlash</code> does nothing. Vortex and Psych Engine keep separate settings, so it can be on in one and off in the other. Since 0.4, <code>camOther</code> / <code>camHUD</code> / <code>camGame</code> exist in Lua and durations can be strings.</li>
+    <li><strong>"Story Mode shows a week named after my mod."</strong> Fixed in 0.4. Songs that aren't in any week get an automatic week, but only in Freeplay. Songs in a hidden week (<code>hideStoryMode</code>) stay out of Story Mode too.</li>
+    <li><strong>"The Week Editor saved a file without .json."</strong> Fixed in 0.4. It now saves straight to <code>mods/&lt;your mod&gt;/weeks/&lt;name&gt;.json</code> and says where.</li>
+    <li><strong>"My event doesn't do anything."</strong> Check that the name in <code>if name == '...'</code> matches the file name exactly, spaces included. Check <code>vortex_script_log.txt</code> for script errors.</li>
+    <li><strong>"My custom state isn't found."</strong> The file must be in <code>states/</code> inside an <em>enabled</em> mod, and <code>switchState</code> takes the file name without <code>.lua</code>.</li>
+    <li><strong>"createScripted returns nil."</strong> The class file isn't in <code>classes/</code>, or its <code>new</code> function has an error. Check <code>vortex_script_log.txt</code>.</li>
+    <li><strong>"The vocals went silent after I paused the song."</strong> Fixed in 0.3. In Psych Engine 1.0, resuming checked both vocal tracks against the <em>player</em> track's length, so in songs with only opponent vocals, or a shorter player track, the opponent vocals stopped for the rest of the song. An empty vocal track could also be reused for menu sounds. Each track is now checked on its own, and a playing track that drifts more than 40 ms from the instrumental is moved back.</li>
+    <li><strong>"My achievement doesn't unlock."</strong> Botplay, the Chart Editor and (unless allowed) Practice Mode never unlock achievements. Check that the mod is enabled, the ID is unique, and look in <code>vortex_script_log.txt</code>. <strong>Reset Progress</strong> in the Achievement Editor relocks one to test it again.</li>
+    <li><strong>"The game is stuck on the Now Loading screen."</strong> This was a threading bug in Psych Engine 1.0's loader: two files finishing at the same moment could lose count. It's fixed in Vortex. If it still happens, send the newest file in <code>crash/</code> and <code>vortex_script_log.txt</code>.</li>
+    <li><strong>"require can't find my module."</strong> It must be in <code>lib/</code> of an enabled mod (or <code>mods/lib/</code>), and you pass the name without <code>.lua</code>: <code>require('mathutil')</code>.</li>
+    <li><strong>"My song doesn't show up."</strong> Open <code>vortex_mods_log.txt</code>. It shows whether the mod is on and whether the chart and <code>Inst</code> were found.</li>
+    <li><strong>"Lua functions named createInstance / callMethod behave differently."</strong> Those are Psych's Haxe-class functions and are unchanged. Vortex's scripted-class functions are named <code>createScripted</code> / <code>callScripted</code> so they don't clash.</li>
+  </ul>
+  <footer>Vortex Engine is a fork of <a href="https://github.com/ShadowMario/FNF-PsychEngine">Psych Engine</a>. The chart editor's Little Buddies use art from <a href="https://github.com/ThatRozebudDude/FPS-Plus-Public">FPS Plus</a> by ThatRozebudDude (non-commercial use).</footer>
+</section>
+
+</main>
+</div>
+
+<script>
+// tiny syntax colouring for the Lua / Haxe examples
+(function () {
+  var kw = /\b(function|end|if|then|else|elseif|local|return|for|in|do|while|not|and|or|nil|true|false|var|new|null)\b/g;
+  document.querySelectorAll('pre code').forEach(function (el) {
+    var html = el.innerHTML;
+    var out = '', i = 0;
+    // split strings and comments first so keywords inside them aren't coloured
+    var re = /(--[^\n]*|\/\/[^\n]*)|('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/g, m, last = 0;
+    var parts = [];
+    while ((m = re.exec(html))) {
+      parts.push({t: 'code', v: html.slice(last, m.index)});
+      parts.push({t: m[1] ? 'c' : 's', v: m[0]});
+      last = re.lastIndex;
+    }
+    parts.push({t: 'code', v: html.slice(last)});
+    el.innerHTML = parts.map(function (p) {
+      if (p.t === 'c') return '<span class="c">' + p.v + '</span>';
+      if (p.t === 's') return '<span class="s">' + p.v + '</span>';
+      return p.v
+        .replace(kw, '<span class="k">$1</span>')
+        .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="n">$1</span>')
+        .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\()/g, function (s, n) { return /^(if|for|while|function)$/.test(n) ? s : '<span class="f">' + n + '</span>'; });
+    }).join('');
+  });
+
+  // copy buttons
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var b = document.createElement('button');
+    b.className = 'copy-btn'; b.textContent = 'Copy';
+    b.addEventListener('click', function () {
+      var txt = pre.querySelector('code').innerText;
+      try { navigator.clipboard.writeText(txt).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200); }); } catch (e) {}
+    });
+    pre.appendChild(b);
+  });
+
+  // mobile menu
+  var sb = document.getElementById('sidebar');
+  document.getElementById('menuToggle').addEventListener('click', function () { sb.classList.toggle('open'); });
+  sb.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function () { sb.classList.remove('open'); }); });
+
+  // highlight the section in view
+  var links = Array.prototype.slice.call(sb.querySelectorAll('a[href^="#"]'));
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      links.forEach(function (l) { l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id); });
+    });
+  }, {rootMargin: '-30% 0px -60% 0px'});
+  document.querySelectorAll('main section[id]').forEach(function (s) { obs.observe(s); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+	"name": "Song Collector",
+	"description": "Finish 3 songs (any songs).",
+	"hidden": false,
+	"maxScore": 3,
+	"maxDecimals": 0,
+	"unlock": {
+		"type": "song_complete",
+		"song": "",
+		"maxMisses": -1,
+		"minAccuracy": 0,
+		"minScore": 0,
+		"allowPractice": false
+	}
+}
